@@ -101,9 +101,15 @@ export async function classifyAndPersist(events: DbEvent[]): Promise<number> {
   const mlaIdByName = await loadMlaIds(sb);
 
   const BATCH = 5;
+  const PARALLEL = 4;
   let total = 0;
-  for (let i = 0; i < events.length; i += BATCH) {
-    const slice = events.slice(i, i + BATCH);
+
+  // Build batch slices upfront, then process with PARALLEL workers.
+  const slices: DbEvent[][] = [];
+  for (let i = 0; i < events.length; i += BATCH) slices.push(events.slice(i, i + BATCH));
+
+  let next = 0;
+  async function processSlice(slice: DbEvent[]) {
     const inputs: ClassifyInput[] = slice.map((e) => ({
       source_id: e.source_id, source: e.source, title: e.title, body: e.body, url: e.url,
     }));
@@ -118,7 +124,7 @@ export async function classifyAndPersist(events: DbEvent[]): Promise<number> {
         entity_id: slice.map((s) => s.source_id).join(","),
         metadata: { error: (e as Error).message, batch_size: slice.length },
       });
-      continue;
+      return;
     }
 
     // Map back to event ids by source_id.
@@ -178,6 +184,15 @@ export async function classifyAndPersist(events: DbEvent[]): Promise<number> {
       }
     }
   }
+
+  async function worker() {
+    while (true) {
+      const idx = next++;
+      if (idx >= slices.length) return;
+      await processSlice(slices[idx]);
+    }
+  }
+  await Promise.all(Array.from({ length: PARALLEL }, () => worker()));
   return total;
 }
 
