@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { SignOutButton } from "@/components/sign-out-button";
 
+export const dynamic = "force-dynamic";
+
 const NAV = [
   { href: "/firm", label: "Inbox" },
   { href: "/firm/voices", label: "Voices" },
