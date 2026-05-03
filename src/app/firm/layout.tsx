@@ -13,6 +13,7 @@ const NAV = [
   { href: "/firm/sources", label: "Sources" },
   { href: "/firm/briefs", label: "Briefs" },
   { href: "/firm/agenda", label: "Agenda" },
+  { href: "/firm/threats", label: "Threats", adminOnly: true },
   { href: "/firm/audit", label: "Audit", adminOnly: true },
 ];
 

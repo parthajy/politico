@@ -26,7 +26,7 @@ export default async function DistrictPage({ params }: { params: { id: string } 
   const sinceISO = since.toISOString();
 
   const [constsRes, trendRes, eventsRes, voicesRes] = await Promise.all([
-    sb.from("constituencies").select("id, name, number, current_mla_id, mlas(name, party, is_minister)").eq("district_id", id).order("number"),
+    sb.from("constituencies").select("id, name, number, current_mla_id, mlas!constituencies_mla_fk(name, party, is_minister)").eq("district_id", id).order("number"),
     sb.from("sentiment_snapshots").select("date, net_sentiment").eq("scope_type", "district").eq("scope_id", id).gte("date", sinceDay).order("date"),
     sb.from("classifications")
       .select("event_id, snt_score, sentiment, events!inner(id, title, source, published_at, url)")

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SentimentSparkline } from "@/components/sentiment-sparkline";
 import { AskDesk } from "@/components/ask-desk";
+import { ThreatSummaryWidget } from "@/components/threat-summary-widget";
 import { format, formatDistanceToNowStrict, subDays } from "date-fns";
 
 export const dynamic = "force-dynamic";
@@ -131,6 +132,8 @@ export default async function PartyHome() {
               </div>
             </CardContent>
           </Card>
+
+          <ThreatSummaryWidget />
 
           <Card>
             <CardHeader>

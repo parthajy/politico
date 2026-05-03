@@ -16,8 +16,18 @@ export default async function ConstituenciesOverview({ searchParams }: { searchP
 
   const { data: constituencies } = await sb
     .from("constituencies")
-    .select("id, number, name, district_id, current_mla_id, mlas(name, party, is_minister, is_cm, is_deputy_cm), districts(name)")
+    .select("id, number, name, district_id, current_mla_id, mlas!constituencies_mla_fk(name, party, is_minister, is_cm, is_deputy_cm), districts(name)")
     .order("number");
+
+  // Pull threat-radar summaries for any constituency that has one
+  const { data: threatRows } = await sb
+    .from("threat_assessments_summary")
+    .select("scope_id, threat_band, headline")
+    .eq("scope_type", "constituency");
+  const threatByConst = new Map<number, { threat_band: string; headline: string }>();
+  for (const t of threatRows ?? []) {
+    if (t.scope_id != null) threatByConst.set(t.scope_id, { threat_band: t.threat_band, headline: t.headline });
+  }
 
   const enriched = await Promise.all((constituencies ?? []).map(async (c) => {
     const m = (c.mlas as unknown) as { name: string; party: string | null; is_minister: boolean; is_cm: boolean; is_deputy_cm: boolean } | null;
@@ -41,6 +51,8 @@ export default async function ConstituenciesOverview({ searchParams }: { searchP
 
     const topJoin = topSignal ? (topSignal.events as unknown) as { title: string } : null;
 
+    const tt = threatByConst.get(c.id);
+
     return {
       id: c.id, number: c.number, name: c.name,
       district: d?.name ?? null,
@@ -52,6 +64,8 @@ export default async function ConstituenciesOverview({ searchParams }: { searchP
       top_signal_title: topJoin?.title ?? null,
       top_signal_tags: (topSignal?.topic_tags ?? []) as string[],
       net_sentiment: lastSnap?.net_sentiment != null ? Number(lastSnap.net_sentiment) : null,
+      threat_band: tt?.threat_band as "low" | "medium" | "high" | "critical" | undefined,
+      threat_headline: tt?.headline ?? null,
     };
   }));
 
@@ -127,6 +141,7 @@ export default async function ConstituenciesOverview({ searchParams }: { searchP
                 <th className="px-3 py-2 text-left">Seat</th>
                 <th className="px-3 py-2 text-left">MLA</th>
                 <th className="w-24 px-3 py-2 text-left">Risk</th>
+                <th className="w-24 px-3 py-2 text-left">Threat radar</th>
                 <th className="w-20 px-3 py-2 text-left">Vol / Neg</th>
                 <th className="w-20 px-3 py-2 text-left">Sent</th>
                 <th className="px-3 py-2 text-left">Forming narrative</th>
@@ -148,6 +163,15 @@ export default async function ConstituenciesOverview({ searchParams }: { searchP
                     {r.mla?.is_minister && !r.mla.is_cm && !r.mla.is_deputy_cm && <Badge variant="default" className="ml-1">Min</Badge>}
                   </td>
                   <td className="px-3 py-2"><Badge variant={r.risk_band === "high" ? "s1" : r.risk_band === "medium" ? "s2" : "s3"}>{r.risk_band}</Badge></td>
+                  <td className="px-3 py-2">
+                    {r.threat_band ? (
+                      <Badge variant={r.threat_band === "critical" || r.threat_band === "high" ? "s1" : r.threat_band === "medium" ? "s2" : "s3"} title={r.threat_headline ?? undefined}>
+                        {r.threat_band}
+                      </Badge>
+                    ) : (
+                      <span className="text-[10px] text-muted">—</span>
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-xs">
                     <span className="numeric-callout text-navy">{r.footprint}</span>
                     <span className={r.neg_count > 0 ? "text-severity-1" : "text-muted"}> · {r.neg_count}</span>

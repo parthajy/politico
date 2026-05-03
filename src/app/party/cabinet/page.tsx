@@ -11,7 +11,7 @@ export default async function CabinetGrid() {
   const sb = createClient();
   const { data: ministers } = await sb
     .from("mlas")
-    .select("id, name, party, portfolio, is_cm, is_deputy_cm, constituency_id, constituencies(name, district_id)")
+    .select("id, name, party, portfolio, is_cm, is_deputy_cm, constituency_id, constituencies!mlas_constituency_id_fkey(name, district_id)")
     .eq("is_minister", true)
     .order("is_cm", { ascending: false })
     .order("is_deputy_cm", { ascending: false })
@@ -19,6 +19,18 @@ export default async function CabinetGrid() {
 
   const sinceDay = subDays(new Date(), 30).toISOString().slice(0, 10);
   const sinceISO = subDays(new Date(), 30).toISOString();
+
+  // Pull all minister threat summaries (CMO read-allowed via summary view)
+  const ministerIds = (ministers ?? []).map((m) => m.id);
+  const { data: threatSummaries } = ministerIds.length > 0
+    ? await sb.from("threat_assessments_summary").select("scope_id, threat_band, headline, generated_at").eq("scope_type", "minister").in("scope_id", ministerIds)
+    : { data: [] as { scope_id: number | null; threat_band: string; headline: string; generated_at: string }[] };
+  const threatByMla = new Map<number, { threat_band: string; headline: string; generated_at: string }>();
+  for (const t of threatSummaries ?? []) {
+    if (t.scope_id != null) threatByMla.set(t.scope_id, { threat_band: t.threat_band, headline: t.headline, generated_at: t.generated_at });
+  }
+  // Also pick up the CM threat for the CM card if present
+  const { data: cmThreat } = await sb.from("threat_assessments_summary").select("threat_band, headline, generated_at").eq("scope_type", "cm").maybeSingle();
 
   const enriched = await Promise.all(
     (ministers ?? []).map(async (m) => {
@@ -79,6 +91,9 @@ export default async function CabinetGrid() {
       }
       const topTopics = Array.from(tagCount.entries()).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([t]) => t);
 
+      // Threat summary for this minister (CM threat handled separately on the card)
+      const tt = m.is_cm ? cmThreat : threatByMla.get(m.id);
+
       return {
         ...m,
         constituency_name: constJoin?.name ?? null,
@@ -92,6 +107,8 @@ export default async function CabinetGrid() {
           const ev = (r.events as unknown) as { title: string };
           return { title: ev.title, sentiment: r.sentiment, snt_score: r.snt_score };
         }),
+        threat_band: tt?.threat_band as "low" | "medium" | "high" | "critical" | undefined,
+        threat_headline: tt?.headline ?? null,
       };
     })
   );
@@ -161,6 +178,18 @@ export default async function CabinetGrid() {
                             <span key={t} className="rounded bg-sand-deep px-1.5 py-0.5 text-[10px] text-navy">{t}</span>
                           ))}
                         </div>
+                      </div>
+                    )}
+                    {m.threat_headline && m.threat_band && (
+                      <div className="mt-3 rounded border-l-2 bg-sand-deep/40 p-2"
+                           style={{ borderLeftColor: m.threat_band === "critical" || m.threat_band === "high" ? "var(--severity-1)" : m.threat_band === "medium" ? "var(--bronze)" : "var(--muted)" }}>
+                        <div className="flex items-center justify-between">
+                          <div className="text-[10px] uppercase tracking-wider text-muted">Threat radar</div>
+                          <Badge variant={m.threat_band === "critical" || m.threat_band === "high" ? "s1" : m.threat_band === "medium" ? "s2" : "s3"}>
+                            {m.threat_band.toUpperCase()}
+                          </Badge>
+                        </div>
+                        <p className="mt-1 text-[11px] text-foreground/85">{m.threat_headline}</p>
                       </div>
                     )}
                     {m.top_signals.length > 0 && (
