@@ -4,6 +4,7 @@ import { ApHeatMap } from "@/components/ap-heat-map";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SentimentSparkline } from "@/components/sentiment-sparkline";
+import { AskDesk } from "@/components/ask-desk";
 import { format, formatDistanceToNowStrict, subDays } from "date-fns";
 
 export const dynamic = "force-dynamic";
@@ -93,6 +94,10 @@ export default async function PartyHome() {
     <div className="container mx-auto max-w-7xl px-6 py-10">
       <div className="text-xs uppercase tracking-[0.18em] text-bronze">State Dashboard</div>
       <h1 className="mt-2 font-serif text-4xl font-bold text-navy">Arunachal Pradesh — {format(new Date(), "EEEE, d MMMM")}</h1>
+
+      <div className="mt-6">
+        <AskDesk />
+      </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">

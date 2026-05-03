@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { InboxClient } from "./inbox-client";
 import { TodaysCall } from "./todays-call";
+import { Narratives } from "./narratives";
+import { CmoReadingWidget } from "./cmo-reading";
 
 export const dynamic = "force-dynamic";
 
@@ -40,15 +42,18 @@ export default async function FirmInbox({ searchParams }: { searchParams: Search
     return <div className="container mx-auto px-6 py-10 text-sm text-severity-1">Inbox query failed: {error.message}</div>;
   }
 
-  // Second pass: triage statuses for these event ids.
+  // Second pass: triage statuses + my stars for these event ids.
   const eventIds = (data ?? []).map((r) => r.event_id);
   const triageByEvent = new Map<string, string>();
+  const starredEvents = new Set<string>();
   if (eventIds.length > 0) {
-    const { data: triageRows } = await supabase
-      .from("triage")
-      .select("event_id, status")
-      .in("event_id", eventIds);
-    for (const t of triageRows ?? []) triageByEvent.set(t.event_id, t.status);
+    const { data: { user } } = await supabase.auth.getUser();
+    const [triageRes, starRes] = await Promise.all([
+      supabase.from("triage").select("event_id, status").in("event_id", eventIds),
+      user ? supabase.from("event_stars").select("event_id").eq("user_id", user.id).in("event_id", eventIds) : Promise.resolve({ data: [] }),
+    ]);
+    for (const t of triageRes.data ?? []) triageByEvent.set(t.event_id, t.status);
+    for (const s of starRes.data ?? []) starredEvents.add(s.event_id);
   }
 
   let rows = (data ?? []).map((r) => {
@@ -69,6 +74,7 @@ export default async function FirmInbox({ searchParams }: { searchParams: Search
       district: district?.name ?? null,
       constituency: constituency?.name ?? null,
       triage_status: triageByEvent.get(ev.id) ?? "new",
+      starred: starredEvents.has(ev.id),
     };
   });
 
@@ -83,6 +89,8 @@ export default async function FirmInbox({ searchParams }: { searchParams: Search
       <h1 className="mt-2 font-serif text-3xl font-bold text-navy">Today&apos;s signals</h1>
       <p className="mt-1 text-sm text-muted">Ranked by composite SNT score. Click a row to see full classification and triage actions.</p>
       <TodaysCall />
+      <CmoReadingWidget />
+      <Narratives />
       <InboxClient rows={rows} districts={districts ?? []} initial={searchParams} />
     </div>
   );

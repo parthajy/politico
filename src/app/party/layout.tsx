@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
 
 const NAV = [
   { href: "/party", label: "Dashboard" },
+  { href: "/party/constituencies", label: "Constituencies" },
   { href: "/party/cabinet", label: "Cabinet" },
   { href: "/party/brief", label: "Brief" },
   { href: "/party/alerts", label: "Alerts" },

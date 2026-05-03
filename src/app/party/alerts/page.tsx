@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { StarButton } from "@/components/star-button";
 import { formatDistanceToNowStrict } from "date-fns";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +21,15 @@ export default async function PartyAlerts({ searchParams }: { searchParams: SP }
 
   const active = (alerts ?? []).filter((a) => !a.resolved_at);
   const resolved = (alerts ?? []).filter((a) => a.resolved_at);
+
+  // Pull my stars for the events these alerts reference
+  const eventIds = active.map((a) => a.event_id).filter((x): x is string => !!x);
+  const { data: { user } } = await sb.auth.getUser();
+  const starredEvents = new Set<string>();
+  if (user && eventIds.length > 0) {
+    const { data: stars } = await sb.from("event_stars").select("event_id").eq("user_id", user.id).in("event_id", eventIds);
+    for (const s of stars ?? []) starredEvents.add(s.event_id);
+  }
 
   return (
     <div className="container mx-auto max-w-5xl px-6 py-10">
@@ -55,7 +65,10 @@ export default async function PartyAlerts({ searchParams }: { searchParams: SP }
               <CardHeader>
                 <div className="flex items-center justify-between gap-3">
                   <CardTitle>{a.title}</CardTitle>
-                  <Badge variant={a.severity === "s1" ? "s1" : "s2"}>{a.severity.toUpperCase()}</Badge>
+                  <div className="flex items-center gap-2">
+                    {a.event_id && <StarButton eventId={a.event_id} initialStarred={starredEvents.has(a.event_id)} />}
+                    <Badge variant={a.severity === "s1" ? "s1" : "s2"}>{a.severity.toUpperCase()}</Badge>
+                  </div>
                 </div>
                 <CardDescription>{formatDistanceToNowStrict(new Date(a.created_at))} ago</CardDescription>
               </CardHeader>

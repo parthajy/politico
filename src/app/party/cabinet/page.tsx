@@ -24,7 +24,7 @@ export default async function CabinetGrid() {
     (ministers ?? []).map(async (m) => {
       const constJoin = (m.constituencies as unknown) as { name: string; district_id: number | null } | null;
 
-      const [{ data: trend }, { count: footprint }] = await Promise.all([
+      const [{ data: trend }, { count: footprint }, { data: recentSignals }, { count: negCount }] = await Promise.all([
         sb
           .from("sentiment_snapshots")
           .select("date, net_sentiment")
@@ -37,6 +37,19 @@ export default async function CabinetGrid() {
           .select("event_id", { count: "exact", head: true })
           .eq("mla_id", m.id)
           .gte("classified_at", sinceISO),
+        sb
+          .from("classifications")
+          .select("snt_score, sentiment, topic_tags, events!inner(title)")
+          .eq("mla_id", m.id)
+          .gte("classified_at", sinceISO)
+          .order("snt_score", { ascending: false, nullsFirst: false })
+          .limit(3),
+        sb
+          .from("classifications")
+          .select("event_id", { count: "exact", head: true })
+          .eq("mla_id", m.id)
+          .gte("classified_at", sinceISO)
+          .lt("sentiment", -0.15),
       ]);
 
       // Fall back to district trend if minister-level is empty
@@ -52,11 +65,33 @@ export default async function CabinetGrid() {
         series = (dt ?? []).map((r) => ({ date: r.date, value: Number(r.net_sentiment) }));
       }
 
+      // Risk score: blend of negative-signal share and absolute volume.
+      const total = footprint ?? 0;
+      const neg = negCount ?? 0;
+      const negShare = total > 0 ? neg / total : 0;
+      const risk = total === 0 ? 0 : Math.min(1, negShare * 0.7 + Math.min(1, total / 30) * 0.3);
+      const riskBand = risk >= 0.6 ? "high" : risk >= 0.3 ? "medium" : "low";
+
+      // Topic clustering for narrative line
+      const tagCount = new Map<string, number>();
+      for (const r of recentSignals ?? []) {
+        for (const t of (r.topic_tags ?? []) as string[]) tagCount.set(t, (tagCount.get(t) ?? 0) + 1);
+      }
+      const topTopics = Array.from(tagCount.entries()).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([t]) => t);
+
       return {
         ...m,
         constituency_name: constJoin?.name ?? null,
         trend: series,
-        footprint: footprint ?? 0,
+        footprint: total,
+        neg_count: neg,
+        risk,
+        risk_band: riskBand as "low" | "medium" | "high",
+        top_topics: topTopics,
+        top_signals: (recentSignals ?? []).map((r) => {
+          const ev = (r.events as unknown) as { title: string };
+          return { title: ev.title, sentiment: r.sentiment, snt_score: r.snt_score };
+        }),
       };
     })
   );
@@ -81,7 +116,7 @@ export default async function CabinetGrid() {
             <h2 className="mb-3 font-serif text-lg font-bold text-navy">{title}</h2>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {set.map((m) => (
-                <Card key={m.id}>
+                <Card key={m.id} className={m.risk_band === "high" ? "border-l-4 border-l-severity-1" : m.risk_band === "medium" ? "border-l-4 border-l-bronze" : ""}>
                   <CardHeader>
                     <div className="flex items-start justify-between gap-2">
                       <div>
@@ -91,24 +126,49 @@ export default async function CabinetGrid() {
                           {m.party && <span> · {m.party}</span>}
                         </div>
                       </div>
-                      {m.is_cm && <Badge variant="bronze">CM</Badge>}
-                      {m.is_deputy_cm && <Badge variant="bronze">Dy CM</Badge>}
+                      <div className="flex flex-col items-end gap-1">
+                        {m.is_cm && <Badge variant="bronze">CM</Badge>}
+                        {m.is_deputy_cm && <Badge variant="bronze">Dy CM</Badge>}
+                        <Badge variant={m.risk_band === "high" ? "s1" : m.risk_band === "medium" ? "s2" : "s3"}>
+                          {m.risk_band === "high" ? "Risk · High" : m.risk_band === "medium" ? "Risk · Med" : "Risk · Low"}
+                        </Badge>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent>
                     {m.portfolio && (
-                      <p className="line-clamp-3 text-xs text-foreground/80">{m.portfolio}</p>
+                      <p className="line-clamp-2 text-xs text-foreground/80">{m.portfolio}</p>
                     )}
-                    <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                    <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
                       <div>
-                        <div className="text-[10px] uppercase tracking-wider text-muted">30-day footprint</div>
-                        <div className="numeric-callout text-xl text-navy">{m.footprint}</div>
+                        <div className="text-[10px] uppercase tracking-wider text-muted">Footprint</div>
+                        <div className="numeric-callout text-lg text-navy">{m.footprint}</div>
                       </div>
                       <div>
-                        <div className="text-[10px] uppercase tracking-wider text-muted">Sentiment trend</div>
-                        <SentimentSparkline series={m.trend} height={40} />
+                        <div className="text-[10px] uppercase tracking-wider text-muted">Negative</div>
+                        <div className={`numeric-callout text-lg ${m.neg_count > 0 ? "text-severity-1" : "text-navy"}`}>{m.neg_count}</div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] uppercase tracking-wider text-muted">Trend</div>
+                        <SentimentSparkline series={m.trend} height={32} />
                       </div>
                     </div>
+                    {m.top_topics.length > 0 && (
+                      <div className="mt-3">
+                        <div className="text-[10px] uppercase tracking-wider text-muted">Forming narrative</div>
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {m.top_topics.map((t) => (
+                            <span key={t} className="rounded bg-sand-deep px-1.5 py-0.5 text-[10px] text-navy">{t}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {m.top_signals.length > 0 && (
+                      <div className="mt-3 border-t border-border pt-2">
+                        <div className="text-[10px] uppercase tracking-wider text-muted">Top signal</div>
+                        <p className="mt-0.5 line-clamp-2 text-[11px] text-foreground/85">{m.top_signals[0].title}</p>
+                      </div>
+                    )}
                     {m.constituency_id && (
                       <Link
                         href={`/party/constituency/${m.constituency_id}`}

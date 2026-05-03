@@ -9,6 +9,7 @@ import { sntBadge, shortSource, sentimentColor } from "@/lib/format";
 import { formatDistanceToNowStrict } from "date-fns";
 import { EventDetailSheet } from "./event-detail-sheet";
 import { InfoTooltip } from "@/components/info-tooltip";
+import { StarButton } from "@/components/star-button";
 import { defineTerm } from "@/lib/glossary";
 
 type InboxRow = {
@@ -25,6 +26,7 @@ type InboxRow = {
   district: string | null;
   constituency: string | null;
   triage_status: string;
+  starred: boolean;
 };
 
 const SOURCES = ["reddit", "youtube", "google_news", "rss", "gdelt"];
@@ -107,11 +109,12 @@ export function InboxClient({
               <th className="w-24 px-3 py-2 text-left">Sent<InfoTooltip text={defineTerm("Sentiment") ?? ""} /></th>
               <th className="w-24 px-3 py-2 text-left">Status<InfoTooltip text={defineTerm("Escalated") ?? ""} /></th>
               <th className="w-20 px-3 py-2 text-left">Age</th>
+              <th className="w-8 px-2 py-2"></th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 && (
-              <tr><td colSpan={7} className="px-3 py-8 text-center text-muted">No signals match the current filters.</td></tr>
+              <tr><td colSpan={8} className="px-3 py-8 text-center text-muted">No signals match the current filters.</td></tr>
             )}
             {filtered.map((r) => {
               const snt = sntBadge(r.snt_score ?? 0);
@@ -144,6 +147,9 @@ export function InboxClient({
                   <td className="px-3 py-2"><StatusPill status={r.triage_status} /></td>
                   <td className="px-3 py-2 text-xs text-muted">
                     {r.published_at ? formatDistanceToNowStrict(new Date(r.published_at)) : "—"}
+                  </td>
+                  <td className="px-2 py-2">
+                    <StarButton eventId={r.id} initialStarred={r.starred} size="sm" />
                   </td>
                 </tr>
               );

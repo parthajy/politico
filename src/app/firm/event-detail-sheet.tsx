@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/input";
 import { sntBadge, sentimentColor, shortSource } from "@/lib/format";
+import { StarButton } from "@/components/star-button";
 import { formatDistanceToNowStrict } from "date-fns";
 import { toast } from "sonner";
 
@@ -117,7 +118,10 @@ export function EventDetailSheet({ row, onClose }: { row: Row; onClose: () => vo
                 <span className="text-xs text-muted">· {formatDistanceToNowStrict(new Date(row.published_at))} ago</span>
               )}
             </div>
-            <button onClick={onClose} className="text-muted hover:text-foreground" aria-label="Close">✕</button>
+            <div className="flex items-center gap-2">
+              <StarButton eventId={row.id} initialStarred={false} showLabel size="sm" />
+              <button onClick={onClose} className="text-muted hover:text-foreground" aria-label="Close">✕</button>
+            </div>
           </div>
           <h2 className="mt-2 font-serif text-lg font-bold leading-tight text-navy">{row.title}</h2>
           {row.url && (
