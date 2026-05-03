@@ -2,7 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 export async function middleware(req: NextRequest) {
-  let res = NextResponse.next({ request: req });
+  // Pass the pathname to server components via header — Next 14 doesn't expose
+  // it directly. The party layout uses this to write per-view audit rows.
+  const reqHeaders = new Headers(req.headers);
+  reqHeaders.set("x-pathname", req.nextUrl.pathname);
+  let res = NextResponse.next({ request: { headers: reqHeaders } });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,7 +18,7 @@ export async function middleware(req: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => req.cookies.set(name, value));
-          res = NextResponse.next({ request: req });
+          res = NextResponse.next({ request: { headers: reqHeaders } });
           cookiesToSet.forEach(({ name, value, options }) => res.cookies.set(name, value, options));
         },
       },

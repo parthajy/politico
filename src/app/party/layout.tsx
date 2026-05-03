@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { auditLog } from "@/lib/audit";
 import { SignOutButton } from "@/components/sign-out-button";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +26,17 @@ export default async function PartyLayout({ children }: { children: React.ReactN
     .single();
 
   if (!profile || profile.role !== "party_viewer") redirect("/firm");
+
+  // Audit every party page view per the brief. Log path so the firm can see
+  // what the CMO is actually reading.
+  const path = headers().get("x-pathname") ?? "/party";
+  // Don't await — fire-and-forget so it never adds latency to the page render.
+  auditLog({
+    user_id: user.id,
+    action: "party_view",
+    entity_type: "page",
+    entity_id: path,
+  }).catch(() => { /* swallow — audit must not break the page */ });
 
   return (
     <div className="min-h-screen bg-sand">

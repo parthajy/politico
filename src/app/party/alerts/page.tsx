@@ -6,13 +6,17 @@ import { formatDistanceToNowStrict } from "date-fns";
 
 export const dynamic = "force-dynamic";
 
-export default async function PartyAlerts() {
+type SP = { severity?: "s1" | "s2" | "s3" };
+
+export default async function PartyAlerts({ searchParams }: { searchParams: SP }) {
   const sb = createClient();
-  const { data: alerts } = await sb
+  let q = sb
     .from("alerts")
     .select("id, severity, title, body, event_id, created_at, resolved_at, classifications:event_id(constituency_id, district_id)")
     .order("created_at", { ascending: false })
     .limit(50);
+  if (searchParams.severity) q = q.eq("severity", searchParams.severity);
+  const { data: alerts } = await q;
 
   const active = (alerts ?? []).filter((a) => !a.resolved_at);
   const resolved = (alerts ?? []).filter((a) => a.resolved_at);
@@ -22,6 +26,23 @@ export default async function PartyAlerts() {
       <div className="text-xs uppercase tracking-[0.18em] text-bronze">Alerts</div>
       <h1 className="mt-2 font-serif text-3xl font-bold text-navy">Active alerts</h1>
       <p className="mt-1 text-sm text-muted">Auto-generated when SNT ≥ 0.8, or when the firm escalates a signal.</p>
+
+      <div className="mt-4 flex items-center gap-1 rounded border border-border bg-white p-1 text-xs">
+        {([
+          { v: undefined, label: "All severities" },
+          { v: "s1" as const, label: "S1" },
+          { v: "s2" as const, label: "S2" },
+          { v: "s3" as const, label: "S3" },
+        ]).map((b) => {
+          const active = (searchParams.severity ?? undefined) === b.v;
+          const href = b.v ? `/party/alerts?severity=${b.v}` : `/party/alerts`;
+          return (
+            <Link key={b.label} href={href} className={`rounded px-3 py-1 ${active ? "bg-navy text-white" : "text-muted hover:text-foreground"}`}>
+              {b.label}
+            </Link>
+          );
+        })}
+      </div>
 
       <div className="mt-6 grid gap-4">
         {active.length === 0 && (
