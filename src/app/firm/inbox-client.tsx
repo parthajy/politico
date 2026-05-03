@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { sntBadge, shortSource, sentimentColor } from "@/lib/format";
 import { formatDistanceToNowStrict } from "date-fns";
 import { EventDetailSheet } from "./event-detail-sheet";
+import { InfoTooltip } from "@/components/info-tooltip";
+import { defineTerm } from "@/lib/glossary";
 
 type InboxRow = {
   id: string;
@@ -98,12 +100,12 @@ export function InboxClient({
         <table className="w-full text-sm">
           <thead className="border-b border-border bg-sand text-xs uppercase tracking-wider text-muted">
             <tr>
-              <th className="w-16 px-3 py-2 text-left">SNT</th>
+              <th className="w-16 px-3 py-2 text-left">SNT<InfoTooltip text={defineTerm("SNT score") ?? ""} /></th>
               <th className="w-20 px-3 py-2 text-left">Source</th>
               <th className="px-3 py-2 text-left">Title</th>
-              <th className="w-40 px-3 py-2 text-left">Tagged</th>
-              <th className="w-24 px-3 py-2 text-left">Sent</th>
-              <th className="w-24 px-3 py-2 text-left">Status</th>
+              <th className="w-40 px-3 py-2 text-left">Tagged<InfoTooltip text={defineTerm("Tagged") ?? ""} /></th>
+              <th className="w-24 px-3 py-2 text-left">Sent<InfoTooltip text={defineTerm("Sentiment") ?? ""} /></th>
+              <th className="w-24 px-3 py-2 text-left">Status<InfoTooltip text={defineTerm("Escalated") ?? ""} /></th>
               <th className="w-20 px-3 py-2 text-left">Age</th>
             </tr>
           </thead>

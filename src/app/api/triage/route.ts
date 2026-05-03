@@ -9,6 +9,9 @@ const Body = z.object({
   event_id: z.string().uuid(),
   status: z.enum(["new", "monitoring", "escalated", "closed"]),
   notes: z.string().optional().nullable(),
+  // Optional AI provenance — set when this action accepts an AI recommendation.
+  ai_suggested_bucket: z.string().optional().nullable(),
+  ai_suggested_note: z.string().optional().nullable(),
 });
 
 export async function POST(req: Request) {
@@ -67,7 +70,12 @@ export async function POST(req: Request) {
     action: `triage_${body.status}`,
     entity_type: "events",
     entity_id: body.event_id,
-    metadata: { notes: body.notes ?? null },
+    metadata: {
+      notes: body.notes ?? null,
+      ai_suggested_bucket: body.ai_suggested_bucket ?? null,
+      ai_suggested_note: body.ai_suggested_note ?? null,
+      human_edited: body.ai_suggested_note != null && body.notes != null && body.notes !== body.ai_suggested_note,
+    },
   });
 
   return NextResponse.json({ ok: true, status: body.status });

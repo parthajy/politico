@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { StoriesBoard } from "./stories-board";
+import { StorySuggestions } from "./story-suggestions";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,9 @@ export default async function StoriesPage() {
       <div className="text-xs uppercase tracking-[0.18em] text-bronze">Stories</div>
       <h1 className="mt-2 font-serif text-3xl font-bold text-navy">Story pipeline</h1>
       <p className="mt-1 text-sm text-muted">Doctrine 5 (Visual Proof Over Claims). Drag cards to advance; published cards carry outlet, URL, and reach.</p>
+      <div className="mt-6">
+        <StorySuggestions />
+      </div>
       <StoriesBoard initial={rows} />
     </div>
   );

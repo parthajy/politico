@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { SignOutButton } from "@/components/sign-out-button";
+import { GlossaryButton } from "@/components/glossary-button";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,7 @@ export default async function FirmLayout({ children }: { children: React.ReactNo
             </nav>
           </div>
           <div className="flex items-center gap-3 text-sm">
+            <GlossaryButton tone="dark" />
             <span className="text-white/60">{profile.full_name ?? profile.email}</span>
             <SignOutButton />
           </div>

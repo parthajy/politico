@@ -9,6 +9,12 @@ const Body = z.object({
   title: z.string().min(2),
   district_id: z.number().nullable().optional(),
   constituency_id: z.number().nullable().optional(),
+  outlet: z.string().nullable().optional(),
+  voice_id: z.string().uuid().nullable().optional(),
+  // AI provenance — set when this story accepts an AI suggestion.
+  source_event_id: z.string().uuid().nullable().optional(),
+  ai_angle: z.string().nullable().optional(),
+  ai_pitch: z.string().nullable().optional(),
 });
 
 export async function POST(req: Request) {
@@ -32,6 +38,8 @@ export async function POST(req: Request) {
       title: body.title,
       district_id: body.district_id ?? null,
       constituency_id: body.constituency_id ?? null,
+      outlet: body.outlet ?? null,
+      voice_id: body.voice_id ?? null,
       status: "idea",
     })
     .select("id, title, status, outlet, url, reach_estimate, published_at")
@@ -39,6 +47,18 @@ export async function POST(req: Request) {
 
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
 
-  await auditLog({ user_id: user.id, action: "story_create", entity_type: "stories", entity_id: data.id, metadata: { title: body.title } });
+  await auditLog({
+    user_id: user.id,
+    action: "story_create",
+    entity_type: "stories",
+    entity_id: data.id,
+    metadata: {
+      title: body.title,
+      source_event_id: body.source_event_id ?? null,
+      ai_angle: body.ai_angle ?? null,
+      ai_pitch: body.ai_pitch ?? null,
+      human_edited_title: body.ai_angle != null && body.title !== body.ai_angle,
+    },
+  });
   return NextResponse.json({ ok: true, story: data });
 }
