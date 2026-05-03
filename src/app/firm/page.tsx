@@ -10,7 +10,8 @@ type SearchParams = { source?: string; district?: string; status?: string; min_s
 export default async function FirmInbox({ searchParams }: { searchParams: SearchParams }) {
   const supabase = createClient();
 
-  // Build the query — flat join via Supabase's foreign-key sugar.
+  // PostgREST can't infer a classifications↔triage relationship (both reference
+  // events). Fetch classifications first, then triage statuses for the same event ids.
   let query = supabase
     .from("classifications")
     .select(`
@@ -24,8 +25,7 @@ export default async function FirmInbox({ searchParams }: { searchParams: Search
       classified_at,
       events!inner ( id, source, source_id, url, title, body, published_at, ingested_at ),
       districts ( id, name ),
-      constituencies ( id, name ),
-      triage ( status, assigned_to, updated_at )
+      constituencies ( id, name )
     `)
     .order("snt_score", { ascending: false, nullsFirst: false })
     .limit(PAGE_SIZE);
@@ -39,12 +39,21 @@ export default async function FirmInbox({ searchParams }: { searchParams: Search
     return <div className="container mx-auto px-6 py-10 text-sm text-severity-1">Inbox query failed: {error.message}</div>;
   }
 
+  // Second pass: triage statuses for these event ids.
+  const eventIds = (data ?? []).map((r) => r.event_id);
+  const triageByEvent = new Map<string, string>();
+  if (eventIds.length > 0) {
+    const { data: triageRows } = await supabase
+      .from("triage")
+      .select("event_id, status")
+      .in("event_id", eventIds);
+    for (const t of triageRows ?? []) triageByEvent.set(t.event_id, t.status);
+  }
+
   let rows = (data ?? []).map((r) => {
     const ev = (r.events as unknown) as { id: string; source: string; source_id: string; url: string | null; title: string; body: string | null; published_at: string | null; ingested_at: string };
     const district = (r.districts as unknown) as { id: number; name: string } | null;
     const constituency = (r.constituencies as unknown) as { id: number; name: string } | null;
-    const triage = ((r.triage as unknown) as { status: string; assigned_to: string | null; updated_at: string }[] | { status: string } | null);
-    const triageStatus = Array.isArray(triage) ? triage[0]?.status : (triage?.status ?? "new");
     return {
       id: ev.id,
       source: ev.source,
@@ -58,7 +67,7 @@ export default async function FirmInbox({ searchParams }: { searchParams: Search
       topic_tags: r.topic_tags ?? [],
       district: district?.name ?? null,
       constituency: constituency?.name ?? null,
-      triage_status: triageStatus ?? "new",
+      triage_status: triageByEvent.get(ev.id) ?? "new",
     };
   });
 
