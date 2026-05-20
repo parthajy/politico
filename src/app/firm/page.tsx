@@ -3,6 +3,7 @@ import { InboxClient } from "./inbox-client";
 import { TodaysCall } from "./todays-call";
 import { Narratives } from "./narratives";
 import { CmoReadingWidget } from "./cmo-reading";
+import { ActivityTicker } from "./activity-ticker";
 
 export const dynamic = "force-dynamic";
 
@@ -106,6 +107,7 @@ export default async function FirmInbox({ searchParams }: { searchParams: Search
       <div className="text-xs uppercase tracking-[0.18em] text-bronze">Signal Inbox</div>
       <h1 className="mt-2 font-serif text-3xl font-bold text-navy">Today&apos;s signals</h1>
       <p className="mt-1 text-sm text-muted">Ranked by composite SNT score. Click a row to see full classification and triage actions.</p>
+      <ActivityTicker />
       <TodaysCall />
       <CmoReadingWidget />
       <Narratives />

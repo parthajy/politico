@@ -6,7 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { SentimentSparkline } from "@/components/sentiment-sparkline";
 import { AskDesk } from "@/components/ask-desk";
 import { ThreatSummaryWidget } from "@/components/threat-summary-widget";
-import { InfoTooltip } from "@/components/info-tooltip";
+import { HeroStatsStrip } from "@/components/hero-stats-strip";
+import { SourceMixWidget } from "@/components/source-mix-widget";
+import { TopicMomentumWidget } from "@/components/topic-momentum-widget";
+import { MlaSpotlightWidget } from "@/components/mla-spotlight-widget";
 import { format, formatDistanceToNowStrict, subDays } from "date-fns";
 
 export const dynamic = "force-dynamic";
@@ -15,8 +18,8 @@ async function loadDashboard() {
   const sb = createClient();
   const today = new Date();
   const since30 = subDays(today, 30).toISOString().slice(0, 10);
+  const sinceISO = subDays(today, 30).toISOString();
 
-  // 1. State sentiment trend (30-day) for headline + sparkline
   const { data: stateTrend } = await sb
     .from("sentiment_snapshots")
     .select("date, net_sentiment, sample_size")
@@ -29,37 +32,31 @@ async function loadDashboard() {
   const baseline = trend.length > 0 ? trend[0].value : 0;
   const delta = todayValue - baseline;
 
-  // 2. District-level rollup for heat map
+  // District rollup — sentiment + signal volume + district-level risk band
   const { data: districts } = await sb.from("districts").select("id, name");
-  const sinceISO = subDays(today, 30).toISOString();
   const districtRows = await Promise.all(
     (districts ?? []).map(async (d) => {
-      const [{ data: ds }, { count }] = await Promise.all([
-        sb
-          .from("sentiment_snapshots")
-          .select("net_sentiment")
-          .eq("scope_type", "district")
-          .eq("scope_id", d.id)
-          .gte("date", since30)
-          .order("date", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-        sb
-          .from("classifications")
-          .select("event_id", { count: "exact", head: true })
-          .eq("district_id", d.id)
-          .gte("classified_at", sinceISO),
+      const [{ data: ds }, { count: total }, { count: neg }] = await Promise.all([
+        sb.from("sentiment_snapshots").select("net_sentiment").eq("scope_type", "district").eq("scope_id", d.id)
+          .gte("date", since30).order("date", { ascending: false }).limit(1).maybeSingle(),
+        sb.from("classifications").select("event_id", { count: "exact", head: true }).eq("district_id", d.id).gte("classified_at", sinceISO),
+        sb.from("classifications").select("event_id", { count: "exact", head: true }).eq("district_id", d.id).gte("classified_at", sinceISO).lt("sentiment", -0.15),
       ]);
+      const t = total ?? 0;
+      const n = neg ?? 0;
+      const negShare = t > 0 ? n / t : 0;
+      const risk = t === 0 ? 0 : Math.min(1, negShare * 0.7 + Math.min(1, t / 40) * 0.3);
+      const risk_band = t === 0 ? null : risk >= 0.6 ? "high" : risk >= 0.3 ? "medium" : "low";
       return {
         id: d.id,
         name: d.name,
         net_sentiment: ds?.net_sentiment != null ? Number(ds.net_sentiment) : null,
-        signals_30d: count ?? 0,
+        signals_30d: t,
+        risk_band: risk_band as "low" | "medium" | "high" | null,
       };
     })
   );
 
-  // 3. Top 5 active alerts
   const { data: alerts } = await sb
     .from("alerts")
     .select("id, severity, title, body, created_at, event_id")
@@ -67,7 +64,6 @@ async function loadDashboard() {
     .order("created_at", { ascending: false })
     .limit(5);
 
-  // 4. Today's published brief preview (if any)
   const { data: brief } = await sb
     .from("briefs")
     .select("id, brief_date, body_md, published_at")
@@ -76,7 +72,6 @@ async function loadDashboard() {
     .limit(1)
     .maybeSingle();
 
-  // 5. Top stories (published this week)
   const lastWeek = subDays(today, 7).toISOString();
   const { data: stories } = await sb
     .from("stories")
@@ -97,16 +92,21 @@ export default async function PartyHome() {
       <div className="text-xs uppercase tracking-[0.18em] text-bronze">State Dashboard</div>
       <h1 className="mt-2 font-serif text-4xl font-bold text-navy">Arunachal Pradesh — {format(new Date(), "EEEE, d MMMM")}</h1>
 
+      {/* Hero stats strip */}
+      <HeroStatsStrip />
+
+      {/* Ask the desk */}
       <div className="mt-6">
         <AskDesk />
       </div>
 
+      {/* Heat map + right rail */}
       <div className="mt-8 grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <Card>
             <CardHeader>
-              <CardTitle>Sentiment heat map</CardTitle>
-              <p className="text-xs text-muted">Last-snapshot net sentiment per district. Click a district to drill down.</p>
+              <CardTitle>State heat map</CardTitle>
+              <p className="text-xs text-muted">Toggle the metric. Click a district to drill down.</p>
             </CardHeader>
             <CardContent>
               <ApHeatMap data={d.districtRows} />
@@ -117,17 +117,14 @@ export default async function PartyHome() {
         <div className="flex flex-col gap-6">
           <Card>
             <CardHeader>
-              <div className="flex items-center gap-1">
-                <CardTitle>State mood — today</CardTitle>
-                <InfoTooltip text="Net sentiment of all classified signals tagged to Arunachal Pradesh in the last 24 hours. Range −1.0 (uniformly hostile) to +1.0 (uniformly supportive). Δ compares today vs the level 30 days ago." />
-              </div>
+              <CardTitle>30-day trend</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="numeric-callout text-5xl text-navy">
                 {d.todayValue >= 0 ? "+" : ""}{d.todayValue.toFixed(2)}
               </div>
               <div className="mt-1 text-xs text-muted">
-                Δ 30 days: <span className={d.delta >= 0 ? "text-positive" : "text-severity-1"}>
+                vs 30 days ago: <span className={d.delta >= 0 ? "text-positive" : "text-severity-1"}>
                   {d.delta >= 0 ? "+" : ""}{d.delta.toFixed(2)}
                 </span>
               </div>
@@ -162,6 +159,14 @@ export default async function PartyHome() {
         </div>
       </div>
 
+      {/* Analytics row: source mix · topic momentum · MLA spotlight */}
+      <div className="mt-8 grid gap-6 lg:grid-cols-3">
+        <SourceMixWidget />
+        <TopicMomentumWidget />
+        <MlaSpotlightWidget />
+      </div>
+
+      {/* Brief + stories */}
       <div className="mt-8 grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <Card>
