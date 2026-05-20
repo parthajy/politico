@@ -109,7 +109,7 @@ export async function fetchRss(): Promise<FetchResult> {
       try {
         const r = await fetchWithTimeout(
           feed.url,
-          { headers: { "User-Agent": "SignalDesk/0.1 RSS aggregator" }, next: { revalidate: 0 } } as RequestInit,
+          { headers: { "User-Agent": "Samvidya/1.0 RSS aggregator" }, next: { revalidate: 0 } } as RequestInit,
           7000,
         );
         if (!r.ok) {

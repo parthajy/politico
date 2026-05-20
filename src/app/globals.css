@@ -14,11 +14,11 @@
   --muted: #6B7280;
   --border: #D4D4D4;
 
-  --severity-1: #B91C1C;
+  --severity-1: #C04646;
   --severity-2: #C7944C;
   --severity-3: #6B7280;
   --positive: #15803D;
-  --negative: #B91C1C;
+  --negative: #C04646;
 
   --background: var(--white);
   --foreground: var(--text);

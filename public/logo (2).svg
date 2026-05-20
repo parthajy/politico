@@ -1,0 +1,16 @@
+<svg version="1.2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1114 242" width="1114" height="242">
+	<defs>
+		<image  width="48" height="42" id="img1" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAqCAMAAADCkShIAAAAAXNSR0IB2cksfwAAAT5QTFRFAAAAwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGwEZGSSf9jgAAAGp0Uk5TADNAJQxgkKzM//K/o4RBV6/njQZsxzcs2p5z3S8IrVkTzni8SnbvHDT7yAHTXEPROA/6lKDXWv2CFqG1FMYKwLPivm+MO/QDB/Omn0gu2KhNG/a6aQL8T/dSIKvrazK26RjNImWc4/DWgQ3/hEkAAAGfSURBVHiclZXtK0NRHMd/3/JiakUUISLzNDbREG1qWERLCykvlPxpe7Eo2ouhkCRCWo1ZkpGHkYey8QptOHebPdzdued8X9zu6Xw+955O934PSClA/BpTmpKNCyAl5bG8/ycU4TPnkRqEf5SFUsQ+FBdIWjwrCOV4U8alFL9E5UJlOD/OUoJQllCNl395lrKbDKEWj2o8UcVVWqh/UOeJqoJ/QkOIh2frPk8IzbjmEqgOgbjQdsnHE+n8kmC84OWp8VgSalR3NJ0mH6gDZ/yC3gsyBPl50oRBpoCAQF+grlMRwYBW7YmI0I5enwjPtkhQ6ITZKySY0H8kJHSDCoWEHpD1QETQgwb2RYQ+0NCeiGAG6e4FeAtrxRFs8wvWVfY/jG3xC4MeJtg3uXnbZUD6p8fXeYVhd7wEHFjj40eXkr00ucLFp3qJtWCEg2/5lj7shDC1kXuQyGPHAlG67lW7ZhwuyhTU+tV2+ETZAs1gOS8+AeffbeahOItFRXx65zaaGmSfonO7FpeMtrxGsppOfk7TPOB2OJNv9BvvPLL5X+8EV8+u9sE7AAAAAElFTkSuQmCC"/>
+	</defs>
+	<style>
+		tspan { white-space:pre } 
+		.t0 { font-size: 150px;fill: #484848;font-weight: 800;font-family: "JHCRasbora-Extrabold", "JHC Rasbora" } 
+	</style>
+	<text id="" transform="translate(211,50)">
+	</text>
+	<text id="samvidya" style="transform: matrix(1.579,0,0,1.579,10,181.638)">
+		<tspan x="0" y="0" class="t0">s</tspan><tspan  y="0" class="t0">a</tspan><tspan  y="0" class="t0">m</tspan><tspan  y="0" class="t0">v</tspan><tspan  y="0" class="t0">i</tspan><tspan  y="0" class="t0">d</tspan><tspan  y="0" class="t0">y</tspan><tspan  y="0" class="t0">a
+</tspan>
+	</text>
+	<use id="i" href="#img1" x="630" y="9"/>
+</svg>

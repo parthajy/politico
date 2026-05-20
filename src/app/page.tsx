@@ -5,7 +5,7 @@ export default function LandingPage() {
   return (
     <main className="min-h-screen bg-sand">
       <div className="container mx-auto max-w-5xl px-6 py-24">
-        <div className="text-xs uppercase tracking-[0.2em] text-bronze">Signal Desk</div>
+        <div className="text-xs uppercase tracking-[0.2em] text-bronze">Samvidya</div>
         <h1 className="mt-4 font-serif text-5xl font-bold text-navy md:text-6xl">
           Political intelligence for Arunachal Pradesh.
         </h1>

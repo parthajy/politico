@@ -8,7 +8,7 @@ export default function GlossaryPage() {
     <main className="min-h-screen bg-sand">
       <div className="container mx-auto max-w-3xl px-6 py-16">
         <div className="text-xs uppercase tracking-[0.18em] text-bronze">Reference</div>
-        <h1 className="mt-2 font-serif text-4xl font-bold text-navy">Signal Desk glossary</h1>
+        <h1 className="mt-2 font-serif text-4xl font-bold text-navy">Samvidya glossary</h1>
         <p className="mt-2 text-sm text-muted">
           Vocabulary, scoring rules, doctrines and source map. Bookmark or print for the cabinet briefing.
         </p>

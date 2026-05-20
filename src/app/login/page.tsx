@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -42,8 +43,9 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen bg-sand">
       <div className="container mx-auto flex max-w-md flex-col items-center justify-center px-6 py-24">
-        <div className="mb-6 text-center">
-          <div className="text-xs uppercase tracking-[0.2em] text-bronze">Signal Desk</div>
+        <div className="mb-6 flex flex-col items-center text-center">
+          <Image src="/logo.png" alt="Samvidya" width={1114} height={242} className="h-9 w-auto" priority />
+          <div className="mt-3 text-xs uppercase tracking-[0.2em] text-bronze">Political intelligence · Arunachal Pradesh</div>
           <h1 className="mt-2 font-serif text-3xl font-bold text-navy">Sign in</h1>
         </div>
         <Card className="w-full">

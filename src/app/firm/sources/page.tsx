@@ -67,8 +67,18 @@ export default async function SourcesPage() {
         {health.map((s) => {
           const lastIngested = s.last_ingested ? new Date(s.last_ingested) : null;
           const ageHours = lastIngested ? (Date.now() - lastIngested.getTime()) / 3_600_000 : Infinity;
-          const status = !lastIngested ? "Pending" : ageHours > 24 ? "Stale" : ageHours > 2 ? "Warm" : "Live";
-          const statusVariant = status === "Live" ? "positive" : status === "Warm" ? "default" : status === "Stale" ? "negative" : "outline";
+          // Cron runs daily; on-demand Refresh fills in between. So "Idle" up to
+          // a week is normal, not a fault. Only flag red after a genuine gap.
+          const status = !lastIngested ? "Pending"
+            : ageHours <= 6 ? "Live"
+            : ageHours <= 48 ? "Recent"
+            : ageHours <= 24 * 7 ? "Idle"
+            : "Stale";
+          const statusVariant = status === "Live" ? "positive"
+            : status === "Recent" ? "default"
+            : status === "Idle" ? "outline"
+            : status === "Stale" ? "negative"
+            : "outline";
           return (
             <Card key={s.id}>
               <CardHeader>

@@ -11,8 +11,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Signal Desk",
-  description: "Political intelligence platform",
+  title: "Samvidya",
+  description: "Political intelligence platform for Arunachal Pradesh",
+  icons: { icon: "/favicon.png" },
 };
 
 export default function RootLayout({

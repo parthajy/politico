@@ -118,9 +118,9 @@ export function ApHeatMap({ data, hrefBase = "/party/district" }: { data: Distri
 
       <ComposableMap
         projection="geoMercator"
-        projectionConfig={{ scale: 5500, center: [94.5, 28.0] }}
+        projectionConfig={{ scale: 6400, center: [94.6, 28.1] }}
         width={800}
-        height={420}
+        height={480}
         className="w-full"
       >
         <Geographies geography={geo as unknown as { type: string; features: GeoFeature[] }}>
