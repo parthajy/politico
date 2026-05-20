@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { SentimentSparkline } from "@/components/sentiment-sparkline";
 import { AskDesk } from "@/components/ask-desk";
 import { ThreatSummaryWidget } from "@/components/threat-summary-widget";
+import { InfoTooltip } from "@/components/info-tooltip";
 import { format, formatDistanceToNowStrict, subDays } from "date-fns";
 
 export const dynamic = "force-dynamic";
@@ -116,7 +117,10 @@ export default async function PartyHome() {
         <div className="flex flex-col gap-6">
           <Card>
             <CardHeader>
-              <CardTitle>Today&apos;s sentiment</CardTitle>
+              <div className="flex items-center gap-1">
+                <CardTitle>State mood — today</CardTitle>
+                <InfoTooltip text="Net sentiment of all classified signals tagged to Arunachal Pradesh in the last 24 hours. Range −1.0 (uniformly hostile) to +1.0 (uniformly supportive). Δ compares today vs the level 30 days ago." />
+              </div>
             </CardHeader>
             <CardContent>
               <div className="numeric-callout text-5xl text-navy">

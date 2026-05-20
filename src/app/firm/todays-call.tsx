@@ -39,7 +39,7 @@ export function TodaysCall() {
 
   async function generate() {
     setBusy(true);
-    const t = toast.loading("AI ranking inbox… (gpt-4o, ~10s)");
+    const t = toast.loading("Reading the inbox…");
     try {
       const r = await fetch("/api/inbox/recommend", { method: "POST" });
       const j = await r.json();
@@ -65,7 +65,7 @@ export function TodaysCall() {
       <Card className="mt-6 border-bronze/30 bg-gradient-to-br from-sand to-white">
         <CardContent className="flex items-center justify-between py-5">
           <div>
-            <div className="text-xs uppercase tracking-[0.18em] text-bronze">AI assistant · gpt-4o</div>
+            <div className="text-xs uppercase tracking-[0.18em] text-bronze">Analyst desk · AI</div>
             <h2 className="mt-1 font-serif text-xl font-bold text-navy">Today&apos;s call</h2>
             <p className="mt-1 text-sm text-muted">
               Have the AI rank the top 25 signals into <em>escalate / story / watch / noise</em> with one-line action notes you can edit before acting.
@@ -87,7 +87,7 @@ export function TodaysCall() {
       <CardContent className="py-5">
         <div className="flex items-start justify-between">
           <div>
-            <div className="text-xs uppercase tracking-[0.18em] text-bronze">AI assistant · gpt-4o</div>
+            <div className="text-xs uppercase tracking-[0.18em] text-bronze">Analyst desk · AI</div>
             <h2 className="mt-1 font-serif text-xl font-bold text-navy">Today&apos;s call</h2>
             <p className="mt-1 text-xs text-muted">
               {generatedAt && <>Generated {generatedAt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}.</>}

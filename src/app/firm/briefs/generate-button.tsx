@@ -70,7 +70,7 @@ export function GenerateBriefButton() {
           >
             <div className="flex items-center justify-between border-b border-border bg-sand px-5 py-3">
               <div>
-                <div className="text-xs uppercase tracking-[0.18em] text-bronze">Streaming · gpt-4o</div>
+                <div className="text-xs uppercase tracking-[0.18em] text-bronze">Streaming · live brief</div>
                 <h3 className="font-serif text-base font-bold text-navy">Today&apos;s draft</h3>
               </div>
               <div className="flex items-center gap-3">

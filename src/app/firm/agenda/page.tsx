@@ -47,7 +47,7 @@ export default function CabinetAgenda() {
     <div className="container mx-auto max-w-4xl px-6 py-10">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <div className="text-xs uppercase tracking-[0.18em] text-bronze">Cabinet meeting prep · gpt-4o</div>
+          <div className="text-xs uppercase tracking-[0.18em] text-bronze">Cabinet meeting prep</div>
           <h1 className="mt-2 font-serif text-3xl font-bold text-navy">Weekly cabinet agenda</h1>
           <p className="mt-1 text-sm text-muted">Reads the past 7 days of signals + alerts and produces a one-page agenda. Decisions, discussions, info, public actions — clearly separated.</p>
         </div>
@@ -67,7 +67,7 @@ export default function CabinetAgenda() {
             <>
               {generatedAt && (
                 <div className="mb-3 text-xs text-muted">
-                  Generated {format(generatedAt, "EEE d MMM, HH:mm")} · {Math.round(body.length / 5)} words · model gpt-4o
+                  Generated {format(generatedAt, "EEE d MMM, HH:mm")} · {Math.round(body.length / 5)} words
                 </div>
               )}
               <Markdown source={body} className="prose prose-sm max-w-none font-serif leading-relaxed" />

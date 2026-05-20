@@ -4,7 +4,7 @@ import { fetchWithTimeout } from "./util";
 // GDELT 2.0 DOC API — public, no auth.
 // Filter for India + Arunachal keywords; we get JSON list of articles.
 const QUERY = '(arunachal OR itanagar OR tawang OR "pema khandu" OR "northeast india") sourcecountry:IN';
-const ENDPOINT = `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(QUERY)}&mode=artlist&format=json&maxrecords=50&sort=datedesc`;
+const ENDPOINT = `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(QUERY)}&mode=artlist&format=json&maxrecords=25&sort=datedesc`;
 
 type GdeltArticle = {
   url: string;

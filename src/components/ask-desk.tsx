@@ -56,7 +56,7 @@ export function AskDesk() {
       <CardContent className="py-5">
         <div className="flex items-baseline justify-between">
           <div>
-            <div className="text-xs uppercase tracking-[0.18em] text-bronze">Ask the desk · gpt-4o</div>
+            <div className="text-xs uppercase tracking-[0.18em] text-bronze">Ask the desk</div>
             <h2 className="mt-1 font-serif text-xl font-bold text-navy">What do you want to know?</h2>
             <p className="mt-1 text-xs text-muted">Plain-English question. Answer cites the actual signals it&apos;s based on.</p>
           </div>

@@ -49,7 +49,7 @@ export function Narratives() {
       <Card className="mt-6 border-bronze/30 bg-gradient-to-br from-sand to-white">
         <CardContent className="flex items-center justify-between py-5">
           <div>
-            <div className="text-xs uppercase tracking-[0.18em] text-bronze">AI assistant · gpt-4o</div>
+            <div className="text-xs uppercase tracking-[0.18em] text-bronze">Analyst desk · AI</div>
             <h2 className="mt-1 font-serif text-xl font-bold text-navy">Forming narratives</h2>
             <p className="mt-1 text-sm text-muted">
               Cluster the last 7 days of signals into 3-6 storylines forming across multiple events. Each carries a sentiment lean, trajectory, and response recommendation.
@@ -68,7 +68,7 @@ export function Narratives() {
       <CardContent className="py-5">
         <div className="flex items-start justify-between">
           <div>
-            <div className="text-xs uppercase tracking-[0.18em] text-bronze">AI assistant · gpt-4o</div>
+            <div className="text-xs uppercase tracking-[0.18em] text-bronze">Analyst desk · AI</div>
             <h2 className="mt-1 font-serif text-xl font-bold text-navy">Forming narratives</h2>
             <p className="mt-1 text-xs text-muted">
               {generatedAt && <>Generated {generatedAt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}.</>}

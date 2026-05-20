@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SentimentSparkline } from "@/components/sentiment-sparkline";
+import { ThreatCardLink } from "@/components/threat-card-link";
 import { subDays } from "date-fns";
 
 export const dynamic = "force-dynamic";
@@ -190,6 +191,9 @@ export default async function CabinetGrid() {
                           </Badge>
                         </div>
                         <p className="mt-1 text-[11px] text-foreground/85">{m.threat_headline}</p>
+                        <div className="mt-1.5">
+                          <ThreatCardLink scope_type={m.is_cm ? "cm" : "minister"} scope_id={m.is_cm ? null : m.id} />
+                        </div>
                       </div>
                     )}
                     {m.top_signals.length > 0 && (

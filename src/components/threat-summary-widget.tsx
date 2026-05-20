@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ThreatCardLink } from "./threat-card-link";
 
 const ORDER: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
 
@@ -31,6 +32,9 @@ export async function ThreatSummaryWidget() {
               </Badge>
             </div>
             <p className="mt-0.5 line-clamp-2 text-[11px] text-foreground/80">{t.headline}</p>
+            <div className="mt-1">
+              <ThreatCardLink scope_type={t.scope_type as "cm" | "minister" | "constituency"} scope_id={t.scope_id} label="Open" />
+            </div>
           </div>
         ))}
       </CardContent>

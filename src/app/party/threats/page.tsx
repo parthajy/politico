@@ -33,16 +33,16 @@ export default async function PartyThreats() {
 
   return (
     <div className="container mx-auto max-w-5xl px-6 py-10">
-      <div className="text-xs uppercase tracking-[0.18em] text-bronze">Threat radar — summary</div>
-      <h1 className="mt-2 font-serif text-3xl font-bold text-navy">What the firm is watching for you</h1>
+      <div className="text-xs uppercase tracking-[0.18em] text-bronze">Threat radar</div>
+      <h1 className="mt-2 font-serif text-3xl font-bold text-navy">Forward-looking risk — by entity</h1>
       <p className="mt-1 text-sm text-muted">
-        One-line summary per entity. The full assessment — specific threats, time horizons, and recommended actions — is held by the firm and discussed in your weekly principals meeting.
+        One-line read per principal. The full assessment — specific threats with time horizons and recommended pre-emptive actions — is briefed in the weekly principals meeting.
       </p>
 
       {rows.length === 0 && (
         <Card className="mt-6">
           <CardContent className="py-12 text-center text-sm text-muted">
-            No assessments published yet. The firm is preparing the first round.
+            First assessment is being prepared.
           </CardContent>
         </Card>
       )}

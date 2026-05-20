@@ -46,6 +46,9 @@ export function EventDetailSheet({ row, onClose }: { row: Row; onClose: () => vo
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [status, setStatus] = useState(row.triage_status);
+  const [translation, setTranslation] = useState<{ title: string; excerpt: string | null } | null>(null);
+  const [translating, setTranslating] = useState(false);
+  const [showTranslated, setShowTranslated] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -76,6 +79,22 @@ export function EventDetailSheet({ row, onClose }: { row: Row; onClose: () => vo
     })();
     return () => { cancelled = true; };
   }, [row.id]);
+
+  async function translate() {
+    if (translating || translation) { setShowTranslated((v) => !v); return; }
+    setTranslating(true);
+    try {
+      const r = await fetch(`/api/events/${row.id}/translate`, { method: "POST" });
+      const j = await r.json();
+      if (!r.ok || !j.ok) { toast.error(j.error ?? "Translation failed"); return; }
+      setTranslation({ title: j.translated_title ?? row.title, excerpt: j.translated_excerpt ?? null });
+      setShowTranslated(true);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setTranslating(false);
+    }
+  }
 
   async function save(newStatus: TriageStatus) {
     setSaving(newStatus);
@@ -123,7 +142,21 @@ export function EventDetailSheet({ row, onClose }: { row: Row; onClose: () => vo
               <button onClick={onClose} className="text-muted hover:text-foreground" aria-label="Close">✕</button>
             </div>
           </div>
-          <h2 className="mt-2 font-serif text-lg font-bold leading-tight text-navy">{row.title}</h2>
+          <h2 className="mt-2 font-serif text-lg font-bold leading-tight text-navy">
+            {showTranslated && translation ? translation.title : row.title}
+          </h2>
+          {detail?.language && detail.language !== "en" && (
+            <div className="mt-1 flex items-center gap-2">
+              <Badge variant="outline" title={`Source language: ${detail.language}`}>{detail.language.toUpperCase()}</Badge>
+              <button
+                onClick={translate}
+                disabled={translating}
+                className="text-[11px] text-bronze underline hover:text-bronze-dark disabled:opacity-50"
+              >
+                {translating ? "Translating…" : translation ? (showTranslated ? "Show original" : "Show English") : "Translate to English"}
+              </button>
+            </div>
+          )}
           {row.url && (
             <a href={row.url} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs text-bronze underline">
               Open source ↗
@@ -171,7 +204,9 @@ export function EventDetailSheet({ row, onClose }: { row: Row; onClose: () => vo
           {row.body && (
             <div className="mt-4">
               <div className="text-xs uppercase tracking-wider text-muted">Excerpt</div>
-              <p className="mt-1 max-h-64 overflow-y-auto whitespace-pre-wrap text-sm text-foreground/90">{row.body.slice(0, 1500)}</p>
+              <p className="mt-1 max-h-64 overflow-y-auto whitespace-pre-wrap text-sm text-foreground/90">
+                {showTranslated && translation?.excerpt ? translation.excerpt : row.body.slice(0, 1500)}
+              </p>
             </div>
           )}
 

@@ -8,13 +8,31 @@ export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 50;
 
-type SearchParams = { source?: string; district?: string; status?: string; min_snt?: string };
+type SortKey = "snt" | "age" | "sentiment" | "source";
+type SearchParams = {
+  source?: string;
+  district?: string;
+  status?: string;
+  min_snt?: string;
+  sort?: SortKey;
+  dir?: "asc" | "desc";
+  page?: string;
+};
 
 export default async function FirmInbox({ searchParams }: { searchParams: SearchParams }) {
   const supabase = createClient();
 
-  // PostgREST can't infer a classifications↔triage relationship (both reference
-  // events). Fetch classifications first, then triage statuses for the same event ids.
+  const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
+  const sort = (searchParams.sort ?? "snt") as SortKey;
+  const dir = searchParams.dir ?? "desc";
+  const ascending = dir === "asc";
+
+  // Map sort key to actual Supabase column
+  const sortColumn = sort === "age" ? "events(published_at)"
+    : sort === "sentiment" ? "sentiment"
+    : sort === "source" ? "events(source)"
+    : "snt_score";
+
   let query = supabase
     .from("classifications")
     .select(`
@@ -29,20 +47,19 @@ export default async function FirmInbox({ searchParams }: { searchParams: Search
       events!inner ( id, source, source_id, url, title, body, published_at, ingested_at ),
       districts ( id, name ),
       constituencies ( id, name )
-    `)
-    .order("snt_score", { ascending: false, nullsFirst: false })
-    .limit(PAGE_SIZE);
+    `, { count: "exact" })
+    .order(sortColumn, { ascending, nullsFirst: false })
+    .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
 
   if (searchParams.source) query = query.eq("events.source", searchParams.source);
   if (searchParams.district) query = query.eq("district_id", parseInt(searchParams.district, 10));
   if (searchParams.min_snt) query = query.gte("snt_score", parseFloat(searchParams.min_snt));
 
-  const { data, error } = await query;
+  const { data, error, count } = await query;
   if (error) {
     return <div className="container mx-auto px-6 py-10 text-sm text-severity-1">Inbox query failed: {error.message}</div>;
   }
 
-  // Second pass: triage statuses + my stars for these event ids.
   const eventIds = (data ?? []).map((r) => r.event_id);
   const triageByEvent = new Map<string, string>();
   const starredEvents = new Set<string>();
@@ -80,8 +97,9 @@ export default async function FirmInbox({ searchParams }: { searchParams: Search
 
   if (searchParams.status) rows = rows.filter((r) => r.triage_status === searchParams.status);
 
-  // Filter dropdowns: pull district list (cached implicitly by Next).
   const { data: districts } = await supabase.from("districts").select("id, name").order("name");
+  const total = count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <div className="container mx-auto max-w-7xl px-6 py-10">
@@ -91,7 +109,16 @@ export default async function FirmInbox({ searchParams }: { searchParams: Search
       <TodaysCall />
       <CmoReadingWidget />
       <Narratives />
-      <InboxClient rows={rows} districts={districts ?? []} initial={searchParams} />
+      <InboxClient
+        rows={rows}
+        districts={districts ?? []}
+        initial={searchParams}
+        page={page}
+        totalPages={totalPages}
+        totalCount={total}
+        sort={sort}
+        dir={dir}
+      />
     </div>
   );
 }

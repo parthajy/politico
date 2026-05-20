@@ -86,6 +86,7 @@ export async function POST() {
           threat_score: a.threat_score,
           threat_band: a.threat_band,
           headline: a.headline,
+          public_posture: a.public_posture,
           threats: a.threats,
           recommended_actions: a.recommended_actions,
           evidence_event_ids: a.evidence_event_ids,

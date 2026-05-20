@@ -43,6 +43,7 @@ export async function POST(req: Request) {
       threat_score: assessment.threat_score,
       threat_band: assessment.threat_band,
       headline: assessment.headline,
+      public_posture: assessment.public_posture,
       threats: assessment.threats,
       recommended_actions: assessment.recommended_actions,
       evidence_event_ids: assessment.evidence_event_ids,

@@ -46,3 +46,7 @@ create or replace view threat_assessments_summary as
   from threat_assessments;
 
 grant select on threat_assessments_summary to authenticated;
+
+-- View for CMO-side threat context: enough to understand WHY without exposing
+-- the strategic playbook. Includes the public_posture and anchor signal titles.
+-- Created in 0005, exposed here as a placeholder.

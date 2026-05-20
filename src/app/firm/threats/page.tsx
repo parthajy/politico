@@ -59,7 +59,7 @@ export default async function ThreatsPage() {
     <div className="container mx-auto max-w-7xl px-6 py-10">
       <div className="flex items-end justify-between gap-4">
         <div>
-          <div className="text-xs uppercase tracking-[0.18em] text-bronze">Threat radar · admin · gpt-4o</div>
+          <div className="text-xs uppercase tracking-[0.18em] text-bronze">Threat radar · admin</div>
           <h1 className="mt-2 font-serif text-3xl font-bold text-navy">Forward-looking risk</h1>
           <p className="mt-1 text-sm text-muted">
             Per-entity threat assessment with specific risks, time horizons, and recommended pre-emptive actions.
@@ -72,7 +72,7 @@ export default async function ThreatsPage() {
       {threats.length === 0 && (
         <Card className="mt-6">
           <CardContent className="py-12 text-center text-sm text-muted">
-            No threat assessments yet. Click <span className="font-medium text-navy">Generate all</span> to run gpt-4o across the CM, top 5 ministers, and top 5 constituencies.
+            No threat assessments yet. Click <span className="font-medium text-navy">Generate all</span> to generate assessments for the CM, top 5 ministers, and top 5 constituencies.
           </CardContent>
         </Card>
       )}

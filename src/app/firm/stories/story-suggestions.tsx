@@ -29,7 +29,7 @@ export function StorySuggestions() {
 
   async function generate() {
     setBusy(true);
-    const t = toast.loading("AI scanning unscoped signals… (gpt-4o, ~10s)");
+    const t = toast.loading("Scanning signals for story angles…");
     try {
       const r = await fetch("/api/stories/suggest", { method: "POST" });
       const j = await r.json();
@@ -59,7 +59,7 @@ export function StorySuggestions() {
       <Card className="mb-6 border-bronze/30 bg-gradient-to-br from-sand to-white">
         <CardContent className="flex items-center justify-between py-5">
           <div>
-            <div className="text-xs uppercase tracking-[0.18em] text-bronze">AI assistant · gpt-4o</div>
+            <div className="text-xs uppercase tracking-[0.18em] text-bronze">Analyst desk · AI</div>
             <h2 className="mt-1 font-serif text-xl font-bold text-navy">Story angles from today&apos;s signals</h2>
             <p className="mt-1 text-sm text-muted">
               The AI scans high-SNT events that aren&apos;t already in the pipeline and proposes angles, voices, and outlets. Edit before accepting.
@@ -78,7 +78,7 @@ export function StorySuggestions() {
       <CardContent className="py-5">
         <div className="flex items-start justify-between">
           <div>
-            <div className="text-xs uppercase tracking-[0.18em] text-bronze">AI assistant · gpt-4o</div>
+            <div className="text-xs uppercase tracking-[0.18em] text-bronze">Analyst desk · AI</div>
             <h2 className="mt-1 font-serif text-xl font-bold text-navy">Suggested story angles</h2>
             <p className="mt-1 text-xs text-muted">
               {generatedAt && <>Generated {generatedAt.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}.</>}

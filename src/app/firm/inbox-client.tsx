@@ -29,6 +29,8 @@ type InboxRow = {
   starred: boolean;
 };
 
+type SortKey = "snt" | "age" | "sentiment" | "source";
+
 const SOURCES = ["reddit", "youtube", "google_news", "rss", "gdelt"];
 const STATUSES = ["new", "monitoring", "escalated", "closed"];
 
@@ -36,10 +38,20 @@ export function InboxClient({
   rows,
   districts,
   initial,
+  page,
+  totalPages,
+  totalCount,
+  sort,
+  dir,
 }: {
   rows: InboxRow[];
   districts: { id: number; name: string }[];
   initial: { source?: string; district?: string; status?: string; min_snt?: string };
+  page: number;
+  totalPages: number;
+  totalCount: number;
+  sort: SortKey;
+  dir: "asc" | "desc";
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -63,6 +75,30 @@ export function InboxClient({
     const params = new URLSearchParams(sp.toString());
     if (value && value !== "all") params.set(key, value);
     else params.delete(key);
+    // Reset to page 1 when filters change
+    if (key !== "page" && key !== "sort" && key !== "dir") params.delete("page");
+    start(() => router.push(`${pathname}?${params.toString()}`));
+  }
+
+  function setSort(nextKey: SortKey) {
+    const params = new URLSearchParams(sp.toString());
+    let nextDir: "asc" | "desc" = "desc";
+    if (nextKey === sort) {
+      // toggle direction
+      nextDir = dir === "desc" ? "asc" : "desc";
+    } else {
+      // sensible defaults per column
+      nextDir = nextKey === "age" || nextKey === "snt" ? "desc" : "asc";
+    }
+    params.set("sort", nextKey);
+    params.set("dir", nextDir);
+    params.delete("page");
+    start(() => router.push(`${pathname}?${params.toString()}`));
+  }
+
+  function goPage(p: number) {
+    const params = new URLSearchParams(sp.toString());
+    params.set("page", String(p));
     start(() => router.push(`${pathname}?${params.toString()}`));
   }
 
@@ -95,20 +131,26 @@ export function InboxClient({
           { value: "0.6", label: "S2+ (≥0.6)" },
           { value: "0.35", label: "S3+ (≥0.35)" },
         ]} />
-        <span className="ml-auto text-xs text-muted">{filtered.length} of {rows.length} signals{pending && " · loading…"}</span>
+        <span className="ml-auto text-xs text-muted">
+          {filtered.length} of {totalCount.toLocaleString()} signals · page {page}/{totalPages}{pending && " · loading…"}
+        </span>
       </div>
 
       <div className="mt-4 overflow-hidden rounded-lg border border-border bg-white">
         <table className="w-full text-sm">
           <thead className="border-b border-border bg-sand text-xs uppercase tracking-wider text-muted">
             <tr>
-              <th className="w-16 px-3 py-2 text-left">SNT<InfoTooltip text={defineTerm("SNT score") ?? ""} /></th>
-              <th className="w-20 px-3 py-2 text-left">Source</th>
+              <SortableTh label="SNT" col="snt" sort={sort} dir={dir} onClick={setSort} className="w-16">
+                <InfoTooltip text={defineTerm("SNT score") ?? ""} />
+              </SortableTh>
+              <SortableTh label="Source" col="source" sort={sort} dir={dir} onClick={setSort} className="w-20" />
               <th className="px-3 py-2 text-left">Title</th>
               <th className="w-40 px-3 py-2 text-left">Tagged<InfoTooltip text={defineTerm("Tagged") ?? ""} /></th>
-              <th className="w-24 px-3 py-2 text-left">Sent<InfoTooltip text={defineTerm("Sentiment") ?? ""} /></th>
+              <SortableTh label="Sent" col="sentiment" sort={sort} dir={dir} onClick={setSort} className="w-24">
+                <InfoTooltip text={defineTerm("Sentiment") ?? ""} />
+              </SortableTh>
               <th className="w-24 px-3 py-2 text-left">Status<InfoTooltip text={defineTerm("Escalated") ?? ""} /></th>
-              <th className="w-20 px-3 py-2 text-left">Age</th>
+              <SortableTh label="Age" col="age" sort={sort} dir={dir} onClick={setSort} className="w-20" />
               <th className="w-8 px-2 py-2"></th>
             </tr>
           </thead>
@@ -158,6 +200,19 @@ export function InboxClient({
         </table>
       </div>
 
+      {totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-between text-xs text-muted">
+          <span>Showing {(page - 1) * 50 + 1}–{Math.min(page * 50, totalCount)} of {totalCount.toLocaleString()}</span>
+          <div className="flex items-center gap-1">
+            <button onClick={() => goPage(1)} disabled={page === 1 || pending} className="rounded border border-border bg-white px-2 py-1 hover:bg-sand disabled:opacity-40">« First</button>
+            <button onClick={() => goPage(page - 1)} disabled={page === 1 || pending} className="rounded border border-border bg-white px-2 py-1 hover:bg-sand disabled:opacity-40">‹ Prev</button>
+            <span className="px-2 text-foreground">Page {page} of {totalPages}</span>
+            <button onClick={() => goPage(page + 1)} disabled={page === totalPages || pending} className="rounded border border-border bg-white px-2 py-1 hover:bg-sand disabled:opacity-40">Next ›</button>
+            <button onClick={() => goPage(totalPages)} disabled={page === totalPages || pending} className="rounded border border-border bg-white px-2 py-1 hover:bg-sand disabled:opacity-40">Last »</button>
+          </div>
+        </div>
+      )}
+
       {opened && (
         <EventDetailSheet
           row={opened}
@@ -165,6 +220,19 @@ export function InboxClient({
         />
       )}
     </>
+  );
+}
+
+function SortableTh({ label, col, sort, dir, onClick, className, children }: { label: string; col: SortKey; sort: SortKey; dir: "asc" | "desc"; onClick: (col: SortKey) => void; className?: string; children?: React.ReactNode }) {
+  const active = sort === col;
+  return (
+    <th className={`${className ?? ""} px-3 py-2 text-left`}>
+      <button onClick={() => onClick(col)} className={`inline-flex items-center gap-1 hover:text-navy ${active ? "text-navy" : ""}`}>
+        {label}
+        {active ? <span className="text-bronze">{dir === "asc" ? "↑" : "↓"}</span> : <span className="opacity-40">↕</span>}
+      </button>
+      {children}
+    </th>
   );
 }
 

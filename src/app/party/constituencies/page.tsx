@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { InfoTooltip } from "@/components/info-tooltip";
 import { sentimentColor } from "@/lib/format";
 import { subDays } from "date-fns";
 
@@ -140,11 +141,11 @@ export default async function ConstituenciesOverview({ searchParams }: { searchP
                 <th className="w-10 px-3 py-2 text-left">#</th>
                 <th className="px-3 py-2 text-left">Seat</th>
                 <th className="px-3 py-2 text-left">MLA</th>
-                <th className="w-24 px-3 py-2 text-left">Risk</th>
-                <th className="w-24 px-3 py-2 text-left">Threat radar</th>
-                <th className="w-20 px-3 py-2 text-left">Vol / Neg</th>
-                <th className="w-20 px-3 py-2 text-left">Sent</th>
-                <th className="px-3 py-2 text-left">Forming narrative</th>
+                <th className="w-24 px-3 py-2 text-left">Risk<InfoTooltip text="Backward-looking risk band from the last 30 days. Composite of negative-coverage share and signal volume." /></th>
+                <th className="w-24 px-3 py-2 text-left">Threat radar<InfoTooltip text="Forward-looking threat band for the next 24h / 7d / 30d. Updated by the analyst desk on demand. Hover to see the headline." /></th>
+                <th className="w-20 px-3 py-2 text-left">Vol / Neg<InfoTooltip text="Signal volume in last 30 days · count of those that are negative-sentiment (< −0.15)." /></th>
+                <th className="w-20 px-3 py-2 text-left">Sent<InfoTooltip text="Most recent net sentiment snapshot for this seat. −1.0 hostile, 0 neutral, +1.0 supportive." /></th>
+                <th className="px-3 py-2 text-left">Forming narrative<InfoTooltip text="Top recent high-SNT signal headline + dominant topic tag for this seat." /></th>
               </tr>
             </thead>
             <tbody>

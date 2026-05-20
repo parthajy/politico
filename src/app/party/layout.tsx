@@ -13,6 +13,7 @@ const NAV = [
   { href: "/party/constituencies", label: "Constituencies" },
   { href: "/party/cabinet", label: "Cabinet" },
   { href: "/party/threats", label: "Threats" },
+  { href: "/party/decisions", label: "Decisions" },
   { href: "/party/brief", label: "Brief" },
   { href: "/party/alerts", label: "Alerts" },
 ];

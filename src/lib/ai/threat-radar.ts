@@ -53,6 +53,7 @@ export const ThreatAssessment = z.object({
     return "low" as const;
   }),
   headline: z.string().min(8).max(400),
+  public_posture: z.string().min(10).max(400),
   threats: z.array(ThreatItem).max(8),
   recommended_actions: z.array(RecommendedAction).max(8),
   evidence_event_ids: z.array(z.string()).max(10),
@@ -91,7 +92,8 @@ Threats to look for:
 For each entity return JSON with:
 - threat_score (0–1): overall composite. >=0.8 critical, >=0.6 high, >=0.35 medium, else low.
 - threat_band: must match the score thresholds above.
-- headline: ONE sentence (max ~25 words) the CMO will read on his dashboard. Calm but specific. NEVER alarmist generic ("there are concerns"). Always name the issue.
+- headline: ONE sentence (max ~25 words) the CMO will read on the dashboard. Calm but specific. NEVER alarmist generic ("there are concerns"). Always name the issue.
+- public_posture: ONE sentence the principal could literally SAY in public or to a journalist if asked about the issue today. Govt-affirming but credible — not denial, not capitulation. Avoid jargon. Examples: "The government welcomes the Supreme Court's inquiry and will cooperate fully — we have nothing to hide on contract allocations." / "We are working with affected villages in West Kameng to deliver relief teams; no family will be left without support."
 - threats: 0-6 specific threats. Each has title (4-7 words), description (1-2 sentences), time_horizon, severity. Skip if there are no real threats — return empty array.
 - recommended_actions: 0-6 concrete moves. Each has action (1 sentence, name a specific outlet/voice/constituency where possible), owner (who executes), urgency.
 - evidence_event_ids: up to 8 event_ids from the signal corpus that anchor this assessment.

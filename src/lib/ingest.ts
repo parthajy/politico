@@ -51,7 +51,10 @@ export async function runIngestAll(): Promise<IngestSummary[]> {
 
 // Hard cap on events classified per cycle. Keeps cron + Refresh bounded
 // (and the OpenAI bill in check). Newest published_at first.
-const MAX_CLASSIFY_PER_CYCLE = 40;
+// Lowered from 40 → 20 to keep the cycle comfortably under the 60s
+// Vercel-Hobby serverless timeout. Excess events still get inserted and
+// are picked up by the next cron run.
+const MAX_CLASSIFY_PER_CYCLE = 20;
 
 export async function persistAndClassify(events: RawEvent[]): Promise<{ inserted: number; classified: number }> {
   if (events.length === 0) return { inserted: 0, classified: 0 };

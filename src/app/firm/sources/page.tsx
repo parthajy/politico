@@ -22,6 +22,8 @@ const PREMIUM_SOURCES = [
   { name: "Konnect Insights", desc: "Regional + Hindi social depth tuned for Indian languages.", unlocks: "Native-language NLP, vernacular sentiment, regional-influencer mapping." },
   { name: "Maltego", desc: "OSINT graph workbench for entity relationship mapping.", unlocks: "Network graphs, identity resolution, multi-source pivots." },
 ] as const;
+// Note: /firm/sources is analyst-facing — the "post-contract" framing is fine here.
+// CMO-facing pages live under /party/* and avoid all firm-side commercial language.
 
 async function loadHealth() {
   const sb = createClient();
