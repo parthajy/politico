@@ -39,15 +39,24 @@ const SPECS: Spec[] = [
   { email: "minister.health@samvidya.demo", role: "party_viewer", full_name: "Minister — Health (demo)", scope_mla_name: "Health" },
 ];
 
+// Resolve the demo password through the same fallback chain the /login page
+// uses on the client. Server-only DEMO_USER_PASSWORD wins if present; we
+// fall back to NEXT_PUBLIC_DEMO_PASSWORD (which is also readable server-side
+// in Next.js) and finally to the hardcoded value baked into .env.local. This
+// guarantees the seed endpoint sets exactly the same password that
+// /login's button will try to sign in with, regardless of which env vars
+// happen to be configured in Vercel.
+const DEMO_PASSWORD =
+  process.env.DEMO_USER_PASSWORD ||
+  process.env.NEXT_PUBLIC_DEMO_PASSWORD ||
+  "SignalDesk2026!";
+
 export async function POST() {
   // Intentionally NOT auth-gated. See header comment — this endpoint can only
   // touch six hardcoded demo emails with a publicly-known demo password, so
   // there is nothing to abuse and gating it would mean demo buttons never
   // work on a fresh deploy.
-  const password = process.env.DEMO_USER_PASSWORD;
-  if (!password) {
-    return NextResponse.json({ ok: false, error: "DEMO_USER_PASSWORD env var not set" }, { status: 500 });
-  }
+  const password = DEMO_PASSWORD;
 
   const admin = createAdminClient();
 
