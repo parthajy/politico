@@ -58,6 +58,7 @@ export async function POST(req: Request) {
         url: body.url, title: "(fetch failed — open URL to review)",
         description: (e as Error).message, image_url: null, site_name: null,
         author: null, published_at: null, text_excerpt: null,
+        platform: null, needs_screenshot: false, extract_quality: "empty",
       };
     }
   }
@@ -145,6 +146,16 @@ export async function POST(req: Request) {
     },
   });
 
+  // Build a UX warning when content recovery was thin/empty and the user can fix it
+  let warning: string | null = null;
+  if (extracted?.needs_screenshot && !ocr) {
+    warning = `${extracted.platform} blocks bot fetchers — we couldn't read the post content from the URL. Re-submit with a screenshot attached so we can OCR the text.`;
+  } else if (extracted?.extract_quality === "empty" && !ocr) {
+    warning = "This URL returned very little content (likely behind a paywall or login). Attach a screenshot for the actual text.";
+  } else if (extracted?.extract_quality === "thin" && !ocr) {
+    warning = "We pulled some metadata but not the full post text. Attach a screenshot if the classification looks off.";
+  }
+
   return NextResponse.json({
     ok: true,
     ms: Date.now() - t0,
@@ -157,6 +168,9 @@ export async function POST(req: Request) {
     topic_tags: cls?.topic_tags ?? [],
     sentiment_justification: cls?.sentiment_justification ?? null,
     ocr_caption: ocr?.caption ?? null,
+    platform: extracted?.platform ?? null,
+    extract_quality: extracted?.extract_quality ?? null,
+    warning,
   });
 }
 

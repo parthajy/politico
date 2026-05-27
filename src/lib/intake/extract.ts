@@ -13,7 +13,50 @@ export type ExtractedPage = {
   author: string | null;
   published_at: string | null;
   text_excerpt: string | null;
+  platform: string | null;       // 'X' / 'Facebook' / 'Instagram' / 'Threads' / null
+  needs_screenshot: boolean;     // true when the platform is JS-walled
+  extract_quality: "good" | "thin" | "empty";
 };
+
+// Platforms that block bot fetchers — URL alone won't yield content, a screenshot is needed.
+const JS_WALLED: Array<{ pattern: RegExp; name: string }> = [
+  { pattern: /^https?:\/\/(www\.)?(twitter|x)\.com\//i, name: "X" },
+  { pattern: /^https?:\/\/(www\.|m\.)?facebook\.com\//i, name: "Facebook" },
+  { pattern: /^https?:\/\/(www\.)?fb\.com\//i, name: "Facebook" },
+  { pattern: /^https?:\/\/(www\.)?instagram\.com\//i, name: "Instagram" },
+  { pattern: /^https?:\/\/(www\.)?threads\.net\//i, name: "Threads" },
+  { pattern: /^https?:\/\/(www\.)?linkedin\.com\//i, name: "LinkedIn" },
+];
+
+export function detectPlatform(url: string): { platform: string | null; needs_screenshot: boolean } {
+  for (const p of JS_WALLED) {
+    if (p.pattern.test(url)) return { platform: p.name, needs_screenshot: true };
+  }
+  return { platform: null, needs_screenshot: false };
+}
+
+// Build a sensible title when OG metadata is missing.
+function fallbackTitle(url: string): string {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace(/^www\./, "");
+    const parts = u.pathname.split("/").filter(Boolean);
+    if (parts.length === 0) return host;
+    if (/^(x|twitter)\.com$/i.test(host) && parts.length >= 3 && parts[1] === "status") {
+      return `X — @${parts[0]} · status ${parts[2].slice(0, 10)}…`;
+    }
+    if (/facebook\.com$/i.test(host)) {
+      if (parts[0]?.startsWith("story.php")) return "Facebook — story";
+      return `Facebook — @${parts[0]}${parts[1] ? ` · ${parts[1]}` : ""}`;
+    }
+    if (/instagram\.com$/i.test(host) && (parts[0] === "p" || parts[0] === "reel") && parts[1]) {
+      return `Instagram — ${parts[0]} ${parts[1].slice(0, 12)}…`;
+    }
+    return `${host} — ${parts[parts.length - 1].slice(0, 60)}`;
+  } catch {
+    return url.slice(0, 100);
+  }
+}
 
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
@@ -70,8 +113,9 @@ function decodeEntities(s: string): string {
 }
 
 export async function extractUrl(url: string): Promise<ExtractedPage> {
-  // Validate
   try { new URL(url); } catch { throw new Error("Invalid URL"); }
+
+  const { platform, needs_screenshot } = detectPlatform(url);
 
   const r = await fetchWithTimeout(
     url,
@@ -89,20 +133,17 @@ export async function extractUrl(url: string): Promise<ExtractedPage> {
   if (!r.ok) throw new Error(`Fetch failed: HTTP ${r.status}`);
 
   const html = await r.text();
-  // Strip everything except basic html-y bytes for safety; cap to ~250KB
   const trimmed = html.slice(0, 250_000);
 
-  const title =
+  const ogTitle =
     meta(trimmed, "og:title") ||
     meta(trimmed, "twitter:title") ||
-    titleTag(trimmed) ||
-    "(no title)";
+    titleTag(trimmed);
   const description =
     meta(trimmed, "og:description") ||
     meta(trimmed, "twitter:description") ||
     meta(trimmed, "description");
-  const image_url =
-    meta(trimmed, "og:image") || meta(trimmed, "twitter:image");
+  const image_url = meta(trimmed, "og:image") || meta(trimmed, "twitter:image");
   const site_name = meta(trimmed, "og:site_name");
   const author = meta(trimmed, "author") || meta(trimmed, "article:author");
   const published_at =
@@ -110,6 +151,16 @@ export async function extractUrl(url: string): Promise<ExtractedPage> {
     meta(trimmed, "og:updated_time") ||
     meta(trimmed, "date");
   const text_excerpt = textExcerpt(trimmed);
+
+  // Quality heuristic: how much real content did we recover?
+  const contentBytes = (description ?? "").length + (text_excerpt ?? "").length;
+  let extract_quality: "good" | "thin" | "empty";
+  if (contentBytes < 80) extract_quality = "empty";
+  else if (contentBytes < 400) extract_quality = "thin";
+  else extract_quality = "good";
+
+  // Use a usable fallback title when OG missing — never return the bare "(no title)" sentinel.
+  const title = ogTitle && ogTitle !== "(no title)" ? ogTitle : fallbackTitle(url);
 
   return {
     url,
@@ -120,5 +171,8 @@ export async function extractUrl(url: string): Promise<ExtractedPage> {
     author,
     published_at,
     text_excerpt,
+    platform,
+    needs_screenshot,
+    extract_quality,
   };
 }

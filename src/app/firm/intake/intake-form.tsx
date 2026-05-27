@@ -19,8 +19,26 @@ type Result = {
   topic_tags: string[];
   sentiment_justification: string | null;
   ocr_caption: string | null;
+  platform: string | null;
+  extract_quality: "good" | "thin" | "empty" | null;
+  warning: string | null;
   ms: number;
 };
+
+// Mirror the server's JS-walled platform list — used only for the live hint
+// while the user is typing. Server is the source of truth.
+const JS_WALLED_PATTERNS: { re: RegExp; name: string }[] = [
+  { re: /(twitter|x)\.com\//i, name: "X" },
+  { re: /facebook\.com\//i, name: "Facebook" },
+  { re: /fb\.com\//i, name: "Facebook" },
+  { re: /instagram\.com\//i, name: "Instagram" },
+  { re: /threads\.net\//i, name: "Threads" },
+  { re: /linkedin\.com\//i, name: "LinkedIn" },
+];
+function detectPlatformClient(url: string): string | null {
+  for (const p of JS_WALLED_PATTERNS) if (p.re.test(url)) return p.name;
+  return null;
+}
 
 export function IntakeForm({ districts }: { districts: { id: number; name: string }[] }) {
   const router = useRouter();
@@ -103,8 +121,13 @@ export function IntakeForm({ districts }: { districts: { id: number; name: strin
             type="url"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://twitter.com/… or https://facebook.com/… or any news article"
+            placeholder="News article URL — or social URL + screenshot below"
           />
+          {url && detectPlatformClient(url) && !imageDataUrl && (
+            <div className="mt-1.5 rounded border border-bronze/40 bg-bronze/5 px-2.5 py-1.5 text-[11px] text-bronze-dark">
+              <span className="font-medium">{detectPlatformClient(url)}</span> blocks bot fetchers — the URL alone won&apos;t give us the post content. Attach a screenshot below; we&apos;ll OCR it.
+            </div>
+          )}
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
@@ -172,16 +195,31 @@ export function IntakeForm({ districts }: { districts: { id: number; name: strin
       </form>
 
       {result && (
-        <div className="mt-6 rounded-lg border border-positive/40 bg-positive/5 p-4">
+        <div className={`mt-6 rounded-lg border p-4 ${result.warning ? "border-bronze/40 bg-bronze/5" : "border-positive/40 bg-positive/5"}`}>
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               {snt && <Badge variant={snt.variant}>{snt.label}</Badge>}
-              <div className="text-xs text-muted">classified · {(result.ms / 1000).toFixed(1)}s</div>
+              {result.platform && <Badge variant="default">{result.platform}</Badge>}
+              {result.extract_quality && (
+                <span className="text-[10px] uppercase tracking-wider text-muted">
+                  extract: {result.extract_quality}
+                </span>
+              )}
+              <div className="text-xs text-muted">· {(result.ms / 1000).toFixed(1)}s</div>
             </div>
-            <Link href="/firm" className="text-xs text-bronze underline">Open in inbox →</Link>
+            <Link href={`/firm?sort=age&dir=desc&source=manual`} className="text-xs text-bronze underline">
+              Open in inbox →
+            </Link>
           </div>
 
-          <div className="mt-2 font-medium text-navy">{result.title}</div>
+          {result.warning && (
+            <div className="mt-3 rounded border border-bronze/40 bg-white p-3 text-xs text-bronze-dark">
+              <div className="font-medium">Heads up</div>
+              <p className="mt-0.5">{result.warning}</p>
+            </div>
+          )}
+
+          <div className="mt-3 font-medium text-navy">{result.title}</div>
 
           <div className="mt-3 grid grid-cols-2 gap-3 text-xs md:grid-cols-4">
             <KV label="SNT" value={result.snt_score != null ? result.snt_score.toFixed(2) : "—"} />
