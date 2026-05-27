@@ -6,6 +6,7 @@ export const dynamic = "force-dynamic";
 
 const NAV: (NavItem & { adminOnly?: boolean })[] = [
   { href: "/firm", label: "Inbox" },
+  { href: "/firm/intake", label: "Intake" },
   { href: "/firm/voices", label: "Voices" },
   { href: "/firm/stories", label: "Stories" },
   { href: "/firm/sources", label: "Sources" },
