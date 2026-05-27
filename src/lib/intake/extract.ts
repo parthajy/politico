@@ -83,21 +83,42 @@ function titleTag(html: string): string | null {
   return m ? decodeEntities(m[1].replace(/\s+/g, " ").trim()) : null;
 }
 
+// Known anti-bot interstitials / login walls. When the extracted text matches
+// any of these, treat the page as content-less.
+const BOT_WALL_SIGNATURES = [
+  /something went wrong,?\s*but don'?t fret/i,
+  /please enable javascript/i,
+  /javascript is (required|disabled)/i,
+  /you must be logged in/i,
+  /please log in to continue/i,
+  /privacy related extensions may cause issues/i,
+  /__sentry_release|__scripts_loaded|sentry_dbid/i,
+];
+
+export function looksLikeBotWall(text: string): boolean {
+  return BOT_WALL_SIGNATURES.some((re) => re.test(text));
+}
+
 function textExcerpt(html: string, maxChars = 1500): string {
-  // Strip script/style first
+  // Strip script/style/noscript/svg first — they'd otherwise leak into the excerpt
   const cleaned = html
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ");
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<svg[\s\S]*?<\/svg>/gi, " ");
   // Pull the largest <article> if present, else <main>, else body
   const article = cleaned.match(/<article[^>]*>([\s\S]*?)<\/article>/i)?.[1];
   const main = cleaned.match(/<main[^>]*>([\s\S]*?)<\/main>/i)?.[1];
   const body = cleaned.match(/<body[^>]*>([\s\S]*?)<\/body>/i)?.[1];
   const root = article || main || body || cleaned;
-  const text = root
+  let text = root
     .replace(/<[^>]+>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+  // Strip residual JS / tracking noise that sometimes survives the above
+  text = text.replace(/window\.[A-Z_]+\s*=\s*\{[^}]*\}[;,]?/g, " ");
+  text = text.replace(/\b(SENTRY_RELEASE|SCRIPTS_LOADED|globalThis|use strict|sentry_dbid)\b[^.\n]*/gi, " ");
+  text = text.replace(/\s+/g, " ").trim();
   return decodeEntities(text.slice(0, maxChars));
 }
 
@@ -150,22 +171,32 @@ export async function extractUrl(url: string): Promise<ExtractedPage> {
     meta(trimmed, "article:published_time") ||
     meta(trimmed, "og:updated_time") ||
     meta(trimmed, "date");
-  const text_excerpt = textExcerpt(trimmed);
+  let text_excerpt: string | null = textExcerpt(trimmed);
 
-  // Quality heuristic: how much real content did we recover?
-  const contentBytes = (description ?? "").length + (text_excerpt ?? "").length;
+  // If what we recovered is just an anti-bot wall, throw it away — storing it
+  // would pollute classification and the inbox excerpt.
+  const isBotWall = needs_screenshot || (text_excerpt && looksLikeBotWall(text_excerpt));
+  if (isBotWall) text_excerpt = null;
+
+  // Same heuristic for description — sometimes meta descriptions are bot-wall too.
+  const descClean = description && !looksLikeBotWall(description) ? description : null;
+
+  // Quality heuristic
+  const contentBytes = (descClean ?? "").length + (text_excerpt ?? "").length;
   let extract_quality: "good" | "thin" | "empty";
   if (contentBytes < 80) extract_quality = "empty";
   else if (contentBytes < 400) extract_quality = "thin";
   else extract_quality = "good";
 
-  // Use a usable fallback title when OG missing — never return the bare "(no title)" sentinel.
-  const title = ogTitle && ogTitle !== "(no title)" ? ogTitle : fallbackTitle(url);
+  // Fallback title
+  const title = ogTitle && ogTitle !== "(no title)" && !looksLikeBotWall(ogTitle)
+    ? ogTitle
+    : fallbackTitle(url);
 
   return {
     url,
     title,
-    description,
+    description: descClean,
     image_url,
     site_name,
     author,
