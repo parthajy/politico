@@ -42,19 +42,26 @@ export async function middleware(req: NextRequest) {
       .from("users").select("role").eq("id", user.id).single();
     const role = profile?.role as string | undefined;
 
+    // Superadmin always lands on /super. Sending them anywhere else creates a
+    // ping-pong because the firm/party layouts reject non-matching roles.
+    if ((isFirm || isParty) && role === "superadmin") {
+      const url = req.nextUrl.clone();
+      url.pathname = "/super";
+      return NextResponse.redirect(url);
+    }
     if (isSuper && role !== "superadmin") {
       const url = req.nextUrl.clone();
       url.pathname = role === "party_viewer" ? "/party" : "/firm";
       return NextResponse.redirect(url);
     }
-    if (isFirm && role !== "firm_admin" && role !== "firm_analyst" && role !== "firm_intern" && role !== "superadmin") {
+    if (isFirm && role !== "firm_admin" && role !== "firm_analyst" && role !== "firm_intern") {
       const url = req.nextUrl.clone();
       url.pathname = "/party";
       return NextResponse.redirect(url);
     }
-    if (isParty && role !== "party_viewer" && role !== "superadmin") {
+    if (isParty && role !== "party_viewer") {
       const url = req.nextUrl.clone();
-      url.pathname = role === "superadmin" ? "/super" : "/firm";
+      url.pathname = "/firm";
       return NextResponse.redirect(url);
     }
   }
