@@ -9,14 +9,20 @@ import { Input, Label } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 
-const DEMO_ACCOUNTS = [
-  { email: "super.partha@samvidya.demo", label: "Superadmin — Partha", role: "superadmin" },
-  { email: "firm.admin@signaldesk.demo", label: "Firm — Admin", role: "firm_admin" },
-  { email: "firm.analyst@signaldesk.demo", label: "Firm — Analyst", role: "firm_analyst" },
-  { email: "firm.intern@samvidya.demo", label: "Firm — Intern (queue triage)", role: "firm_intern" },
-  { email: "party.cm@signaldesk.demo", label: "CMO — Chief Minister's office", role: "party_viewer" },
-  { email: "minister.health@samvidya.demo", label: "Minister — Health portfolio (scoped)", role: "party_viewer" },
+type DemoRole = "superadmin" | "firm_admin" | "firm_analyst" | "firm_intern" | "party_viewer";
+
+const DEMO_ACCOUNTS: { email: string; label: string; role: DemoRole; landing: string }[] = [
+  { email: "super.partha@samvidya.demo", label: "Superadmin — Partha", role: "superadmin", landing: "/super" },
+  { email: "firm.admin@signaldesk.demo", label: "Firm — Admin", role: "firm_admin", landing: "/firm" },
+  { email: "firm.analyst@signaldesk.demo", label: "Firm — Analyst", role: "firm_analyst", landing: "/firm" },
+  { email: "firm.intern@samvidya.demo", label: "Firm — Intern (queue triage)", role: "firm_intern", landing: "/firm/queue" },
+  { email: "party.cm@signaldesk.demo", label: "CMO — Chief Minister's office", role: "party_viewer", landing: "/party" },
+  { email: "minister.health@samvidya.demo", label: "Minister — Health portfolio (scoped)", role: "party_viewer", landing: "/party" },
 ];
+
+// We've ensured the seed once per browser session — no need to re-run for every
+// demo click. The seed itself is idempotent and harmless either way.
+let seededOnce = false;
 
 export default function LoginPage() {
   const router = useRouter();
@@ -24,6 +30,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [mode, setMode] = useState<"otp" | "password">("otp");
   const [loading, setLoading] = useState(false);
+  const [busyDemo, setBusyDemo] = useState<string | null>(null);
   const [otpSent, setOtpSent] = useState(false);
 
   async function sendOtp(e?: React.FormEvent) {
@@ -56,11 +63,59 @@ export default function LoginPage() {
     router.push("/firm");
   }
 
-  function fillDemo(em: string) {
-    setEmail(em);
-    setPassword(process.env.NEXT_PUBLIC_DEMO_PASSWORD ?? "SignalDesk2026!");
-    // Demo accounts know their password; default to password mode for them
+  // One-shot demo sign-in. Ensures the underlying accounts exist (seeds them
+  // if not — endpoint is public + idempotent + only touches 6 hardcoded
+  // demo emails), then signs in with the demo password, then routes to the
+  // appropriate landing page.
+  async function quickDemoSignIn(acct: typeof DEMO_ACCOUNTS[number]) {
+    if (busyDemo) return;
+    setBusyDemo(acct.email);
+    setEmail(acct.email);
+    const pwd = process.env.NEXT_PUBLIC_DEMO_PASSWORD ?? "SignalDesk2026!";
+    setPassword(pwd);
     setMode("password");
+
+    const supabase = createClient();
+
+    async function tryPassword() {
+      return supabase.auth.signInWithPassword({ email: acct.email, password: pwd });
+    }
+
+    try {
+      // First attempt
+      let { error } = await tryPassword();
+      if (error) {
+        // Likely the account doesn't exist yet OR password isn't set. Seed and retry.
+        if (!seededOnce) toast.message("Setting up demo accounts…");
+        const r = await fetch("/api/demo/seed-accounts", { method: "POST" });
+        const j = await r.json();
+        if (!r.ok || !j.ok) {
+          toast.error(j.error ?? "Demo setup failed");
+          return;
+        }
+        seededOnce = true;
+        ({ error } = await tryPassword());
+        if (error) {
+          // Inspect the seed results for this specific email — if it failed,
+          // surface the underlying reason rather than the generic auth error.
+          const myResult = (j.results ?? []).find((x: { email: string }) => x.email === acct.email);
+          if (myResult?.status === "error") {
+            toast.error(`Couldn't create ${acct.email}: ${myResult.note}`);
+          } else {
+            toast.error(error.message);
+          }
+          return;
+        }
+      }
+
+      toast.success(`Signed in as ${acct.label}`);
+      router.refresh();
+      router.push(acct.landing);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusyDemo(null);
+    }
   }
 
   return (
@@ -130,21 +185,33 @@ export default function LoginPage() {
         </Card>
 
         <div className="mt-6 w-full">
-          <div className="text-xs uppercase tracking-wider text-muted">Demo accounts (password mode)</div>
+          <div className="text-xs uppercase tracking-wider text-muted">One-click demo accounts</div>
+          <p className="mt-1 text-[11px] text-muted">
+            Click any role to sign in instantly. The first click seeds the demo accounts if they don&apos;t exist yet (takes ~3 seconds).
+          </p>
           <div className="mt-2 flex flex-col gap-2">
-            {DEMO_ACCOUNTS.map((a) => (
-              <button
-                key={a.email}
-                onClick={() => fillDemo(a.email)}
-                className="flex items-center justify-between rounded-md border border-border bg-white px-3 py-2 text-left text-sm hover:bg-sand-deep"
-              >
-                <span className="font-medium text-navy">{a.label}</span>
-                <span className="text-xs text-muted">{a.email}</span>
-              </button>
-            ))}
+            {DEMO_ACCOUNTS.map((a) => {
+              const busy = busyDemo === a.email;
+              const otherBusy = busyDemo && busyDemo !== a.email;
+              return (
+                <button
+                  key={a.email}
+                  onClick={() => quickDemoSignIn(a)}
+                  disabled={!!busyDemo}
+                  className={`flex items-center justify-between rounded-md border border-border bg-white px-3 py-2 text-left text-sm transition ${
+                    busy ? "border-bronze bg-sand-deep" : otherBusy ? "opacity-40" : "hover:bg-sand-deep hover:border-bronze/40"
+                  }`}
+                >
+                  <span className="font-medium text-navy">{a.label}</span>
+                  <span className="text-xs text-muted">
+                    {busy ? "Signing in…" : a.email}
+                  </span>
+                </button>
+              );
+            })}
           </div>
           <p className="mt-4 text-[11px] leading-relaxed text-muted">
-            Interns sign in with the email link only — no password. Field volunteers use the dedicated app at{" "}
+            Real interns sign in with the email link only — no password. Field volunteers use the dedicated app at{" "}
             <a href="/v/login" className="text-bronze underline">/v/login</a> with the token issued by their desk.
           </p>
         </div>

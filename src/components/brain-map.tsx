@@ -243,8 +243,14 @@ export function BrainMap({ graph, title, subtitle }: { graph: BrainGraph; title:
 
           // Custom node paint: glow + ring + label, dim non-neighbours on hover
           nodeCanvasObject={(node: unknown, ctx: CanvasRenderingContext2D, globalScale: number) => {
-            const n = node as BrainNode & { x: number; y: number };
-            const baseR = 5 + (n.weight ?? 0.4) * 12;
+            const n = node as BrainNode & { x?: number; y?: number };
+            // Force-graph occasionally calls us before d3 has assigned x/y
+            // (or with NaN positions during simulation warm-up). Bail safely
+            // — the next tick will have real coordinates.
+            if (!Number.isFinite(n.x) || !Number.isFinite(n.y)) return;
+            const nx = n.x as number;
+            const ny = n.y as number;
+            const baseR = Math.max(2, 5 + (n.weight ?? 0.4) * 12);
             const ring = n.risk_band ? RISK_RING[n.risk_band] : null;
 
             // Determine dim/highlight state for hover
@@ -262,19 +268,19 @@ export function BrainMap({ graph, title, subtitle }: { graph: BrainGraph; title:
 
             // Glow halo for big nodes
             if (baseR > 7) {
-              const grad = ctx.createRadialGradient(n.x, n.y, baseR * 0.6, n.x, n.y, baseR * 2.4);
+              const grad = ctx.createRadialGradient(nx, ny, baseR * 0.6, nx, ny, baseR * 2.4);
               grad.addColorStop(0, hexToRgba(color, 0.55));
               grad.addColorStop(1, hexToRgba(color, 0));
               ctx.fillStyle = grad;
               ctx.beginPath();
-              ctx.arc(n.x, n.y, baseR * 2.4, 0, 2 * Math.PI);
+              ctx.arc(nx, ny, baseR * 2.4, 0, 2 * Math.PI);
               ctx.fill();
             }
 
             // Risk ring
             if (ring) {
               ctx.beginPath();
-              ctx.arc(n.x, n.y, baseR + 3, 0, 2 * Math.PI);
+              ctx.arc(nx, ny, baseR + 3, 0, 2 * Math.PI);
               ctx.strokeStyle = ring;
               ctx.lineWidth = 2;
               ctx.stroke();
@@ -282,7 +288,7 @@ export function BrainMap({ graph, title, subtitle }: { graph: BrainGraph; title:
 
             // Core
             ctx.beginPath();
-            ctx.arc(n.x, n.y, baseR, 0, 2 * Math.PI);
+            ctx.arc(nx, ny, baseR, 0, 2 * Math.PI);
             ctx.fillStyle = color;
             ctx.fill();
             ctx.strokeStyle = "rgba(0,0,0,0.35)";
@@ -305,21 +311,22 @@ export function BrainMap({ graph, title, subtitle }: { graph: BrainGraph; title:
               const w = ctx.measureText(label).width + padX * 2;
               const h = fontSize + padY * 2;
               ctx.fillStyle = "rgba(11,30,51,0.78)";
-              roundRect(ctx, n.x - w / 2, n.y + baseR + 4, w, h, 3);
+              roundRect(ctx, nx - w / 2, ny + baseR + 4, w, h, 3);
               ctx.fill();
 
               ctx.fillStyle = n.kind === "minister" ? "#F3D08A" : "#F3EBDD";
-              ctx.fillText(label, n.x, n.y + baseR + 4 + padY);
+              ctx.fillText(label, nx, ny + baseR + 4 + padY);
             }
 
             ctx.globalAlpha = 1;
           }}
           nodePointerAreaPaint={(node: unknown, color: string, ctx: CanvasRenderingContext2D) => {
-            const n = node as BrainNode & { x: number; y: number };
-            const baseR = 8 + (n.weight ?? 0.4) * 14;
+            const n = node as BrainNode & { x?: number; y?: number };
+            if (!Number.isFinite(n.x) || !Number.isFinite(n.y)) return;
+            const baseR = Math.max(2, 8 + (n.weight ?? 0.4) * 14);
             ctx.fillStyle = color;
             ctx.beginPath();
-            ctx.arc(n.x, n.y, baseR, 0, 2 * Math.PI);
+            ctx.arc(n.x as number, n.y as number, baseR, 0, 2 * Math.PI);
             ctx.fill();
           }}
 

@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { auditLog } from "@/lib/audit";
 
@@ -12,11 +11,15 @@ export const maxDuration = 60;
 // AND have the demo password set, so the "fill demo" buttons on /login can
 // sign in directly via signInWithPassword without going through OTP.
 //
-// Superadmin-only. Safe to re-run; updates passwords + roles + scope on each call.
+// PUBLIC endpoint — no auth required. The only thing it can do is create or
+// reset the password on six hardcoded demo emails (super.partha, firm.admin,
+// firm.analyst, firm.intern, party.cm, minister.health all at
+// @samvidya.demo / @signaldesk.demo). The password it sets is
+// DEMO_USER_PASSWORD which is already exposed publicly via
+// NEXT_PUBLIC_DEMO_PASSWORD — so there's nothing to abuse.
 //
-// The intern account and the per-minister account are the new additions —
-// they previously didn't have passwords (interns sign in via OTP), so without
-// this endpoint the demo buttons would 400.
+// The login page calls this automatically before the first password sign-in
+// attempt on a demo button, so demos always Just Work even on a fresh DB.
 
 type Spec = {
   email: string;
@@ -37,14 +40,10 @@ const SPECS: Spec[] = [
 ];
 
 export async function POST() {
-  const sb = createClient();
-  const { data: { user } } = await sb.auth.getUser();
-  if (!user) return NextResponse.json({ ok: false, error: "unauthenticated" }, { status: 401 });
-  const { data: me } = await sb.from("users").select("role").eq("id", user.id).single();
-  if (me?.role !== "superadmin") {
-    return NextResponse.json({ ok: false, error: "superadmin only" }, { status: 403 });
-  }
-
+  // Intentionally NOT auth-gated. See header comment — this endpoint can only
+  // touch six hardcoded demo emails with a publicly-known demo password, so
+  // there is nothing to abuse and gating it would mean demo buttons never
+  // work on a fresh deploy.
   const password = process.env.DEMO_USER_PASSWORD;
   if (!password) {
     return NextResponse.json({ ok: false, error: "DEMO_USER_PASSWORD env var not set" }, { status: 500 });
@@ -129,7 +128,7 @@ export async function POST() {
   }
 
   await auditLog({
-    user_id: user.id,
+    user_id: null,
     action: "demo_seed_accounts",
     entity_type: "users",
     entity_id: "batch",
