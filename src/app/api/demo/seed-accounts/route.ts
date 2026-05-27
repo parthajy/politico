@@ -52,6 +52,16 @@ export async function POST() {
 
   const admin = createAdminClient();
 
+  // Pre-flight: does the scope_mla_id column exist? If not, the minister
+  // demo account can't be seeded. Run migration 0012 first.
+  const { error: probe } = await admin.from("users").select("scope_mla_id").limit(1);
+  if (probe && /scope_mla_id/i.test(probe.message)) {
+    return NextResponse.json({
+      ok: false,
+      error: "users.scope_mla_id column missing. Run supabase/migrations/0012_minister_scope.sql in the SQL editor first.",
+    }, { status: 412 });
+  }
+
   // Resolve a Health minister id (or first cabinet minister) for the demo scope
   const { data: healthMin } = await admin
     .from("mlas")
