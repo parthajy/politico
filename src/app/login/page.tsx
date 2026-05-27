@@ -141,6 +141,10 @@ export default function LoginPage() {
               </button>
             ))}
           </div>
+          <p className="mt-4 text-[11px] leading-relaxed text-muted">
+            Interns sign in with the email link only — no password. Field volunteers use the dedicated app at{" "}
+            <a href="/v/login" className="text-bronze underline">/v/login</a> with the token issued by their desk.
+          </p>
         </div>
       </div>
     </main>

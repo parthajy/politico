@@ -1,4 +1,4 @@
-import { getOpenAI, MODEL_BRIEF } from "./openai";
+import { getAnthropic, MODEL_BRIEF } from "./anthropic";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { format, subDays } from "date-fns";
 
@@ -129,18 +129,17 @@ function userPrompt(ctx: AgendaContext): string {
 }
 
 export async function* streamAgenda(ctx: AgendaContext): AsyncGenerator<string> {
-  const openai = getOpenAI();
-  const stream = await openai.chat.completions.create({
+  const client = getAnthropic();
+  const stream = client.messages.stream({
     model: MODEL_BRIEF,
+    system: SYSTEM,
+    max_tokens: 3000,
     temperature: 0.5,
-    stream: true,
-    messages: [
-      { role: "system", content: SYSTEM },
-      { role: "user", content: userPrompt(ctx) },
-    ],
+    messages: [{ role: "user", content: userPrompt(ctx) }],
   });
-  for await (const chunk of stream) {
-    const text = chunk.choices[0]?.delta?.content;
-    if (text) yield text;
+  for await (const event of stream) {
+    if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+      yield event.delta.text;
+    }
   }
 }

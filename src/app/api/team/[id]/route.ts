@@ -72,7 +72,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   }
 
   const admin = createAdminClient();
-  const token = randomBytes(32).toString("base64url");
+  const token = `sv_v_${randomBytes(20).toString("base64url")}`;
+  // Update Supabase password to the new token AND rotate the session row.
+  // The volunteer's old token stops working on both ends simultaneously.
+  await admin.auth.admin.updateUserById(params.id, { password: token });
   const { error } = await admin.from("volunteer_sessions").upsert({
     user_id: params.id,
     token,

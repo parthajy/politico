@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { auditLog } from "@/lib/audit";
 import { buildBriefContext, streamBrief } from "@/lib/ai/brief";
-import { MODEL_BRIEF } from "@/lib/ai/openai";
+import { MODEL_BRIEF } from "@/lib/ai/anthropic";
 import { format } from "date-fns";
 
 export const dynamic = "force-dynamic";

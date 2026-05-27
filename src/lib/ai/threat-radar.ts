@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getOpenAI, MODEL_BRIEF } from "./openai";
+import { jsonCall, MODEL_BRIEF } from "./anthropic";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { subDays } from "date-fns";
 
@@ -103,44 +103,79 @@ Rules:
 - The 'cm' scope means the Chief Minister specifically. Treat with extra weight — anything that touches him is a state-level concern.
 - For 'minister' scope, look for individual exposure AND brand-bleeding into the cabinet.
 - For 'constituency' scope, consider whether the sitting MLA is implicated; consider local mobilisation.
-- Output strict JSON only.`;
+- Output ONLY through the structured tool — no prose.`;
+
+const SCHEMA = {
+  type: "object",
+  properties: {
+    threat_score: { type: "number" },
+    threat_band: { type: "string", enum: ["low", "medium", "high", "critical"] },
+    headline: { type: "string" },
+    public_posture: { type: "string" },
+    threats: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          title: { type: "string" },
+          description: { type: "string" },
+          time_horizon: { type: "string", enum: ["next_24h", "next_7d", "next_30d"] },
+          severity: { type: "string", enum: ["low", "medium", "high", "critical"] },
+        },
+        required: ["title", "description", "time_horizon", "severity"],
+      },
+    },
+    recommended_actions: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          action: { type: "string" },
+          owner: { type: "string", enum: ["analyst", "outlet_partner", "voice_network", "minister_office", "cm_office", "external"] },
+          urgency: { type: "string", enum: ["now", "today", "this_week"] },
+        },
+        required: ["action", "owner", "urgency"],
+      },
+    },
+    evidence_event_ids: { type: "array", items: { type: "string" } },
+  },
+  required: ["threat_score", "threat_band", "headline", "public_posture", "threats", "recommended_actions", "evidence_event_ids"],
+};
 
 export async function assessThreat(ctx: ScopeContext): Promise<ThreatAssessment> {
-  const openai = getOpenAI();
-  const r = await openai.chat.completions.create({
+  const raw = await jsonCall<unknown>({
     model: MODEL_BRIEF,
-    response_format: { type: "json_object" },
+    system: SYSTEM,
+    user: JSON.stringify({
+      scope_type: ctx.scope_type,
+      entity: {
+        name: ctx.entity_name,
+        party: ctx.party,
+        is_minister: ctx.is_minister,
+        portfolio: ctx.portfolio,
+        district: ctx.district,
+        constituency: ctx.constituency,
+      },
+      signals: ctx.signals.map((s) => ({
+        event_id: s.event_id,
+        title: s.title,
+        body: (s.body ?? "").slice(0, 250),
+        source: s.source,
+        snt_score: s.snt_score,
+        sentiment: s.sentiment,
+        topic_tags: s.topic_tags,
+        published_at: s.published_at,
+      })),
+      sentiment_30d: ctx.sentiment_30d,
+      active_alerts: ctx.active_alerts,
+    }),
+    schema: SCHEMA,
+    toolName: "emit_threat_assessment",
+    toolDescription: "Emit the forward-looking threat assessment for this entity.",
     temperature: 0.3,
-    messages: [
-      { role: "system", content: SYSTEM },
-      { role: "user", content: JSON.stringify({
-        scope_type: ctx.scope_type,
-        entity: {
-          name: ctx.entity_name,
-          party: ctx.party,
-          is_minister: ctx.is_minister,
-          portfolio: ctx.portfolio,
-          district: ctx.district,
-          constituency: ctx.constituency,
-        },
-        signals: ctx.signals.map((s) => ({
-          event_id: s.event_id,
-          title: s.title,
-          body: (s.body ?? "").slice(0, 250),
-          source: s.source,
-          snt_score: s.snt_score,
-          sentiment: s.sentiment,
-          topic_tags: s.topic_tags,
-          published_at: s.published_at,
-        })),
-        sentiment_30d: ctx.sentiment_30d,
-        active_alerts: ctx.active_alerts,
-      }) },
-    ],
+    maxTokens: 3000,
   });
-  const raw = r.choices[0]?.message?.content;
-  if (!raw) throw new Error("empty threat response");
-  const parsed = ThreatAssessment.safeParse(JSON.parse(raw));
+  const parsed = ThreatAssessment.safeParse(raw);
   if (!parsed.success) throw new Error(`threat schema mismatch: ${parsed.error.message.slice(0, 200)}`);
   // Filter evidence ids to ones we actually sent
   const valid = new Set(ctx.signals.map((s) => s.event_id));

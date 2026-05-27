@@ -2,8 +2,6 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
 export async function middleware(req: NextRequest) {
-  // Pass the pathname to server components via header — Next 14 doesn't expose
-  // it directly. The party layout uses this to write per-view audit rows.
   const reqHeaders = new Headers(req.headers);
   reqHeaders.set("x-pathname", req.nextUrl.pathname);
   let res = NextResponse.next({ request: { headers: reqHeaders } });
@@ -30,20 +28,40 @@ export async function middleware(req: NextRequest) {
   const isFirm = path.startsWith("/firm");
   const isParty = path.startsWith("/party");
   const isSuper = path.startsWith("/super");
+  // /v is the volunteer PWA. /v/login is the only unauthenticated route under it.
+  const isVRoot = path === "/v" || path.startsWith("/v/");
+  const isVLogin = path === "/v/login";
 
   if (!user && (isFirm || isParty || isSuper)) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
+  if (!user && isVRoot && !isVLogin) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/v/login";
+    return NextResponse.redirect(url);
+  }
 
-  if (user && (isFirm || isParty || isSuper)) {
+  if (user && (isFirm || isParty || isSuper || (isVRoot && !isVLogin))) {
     const { data: profile } = await supabase
       .from("users").select("role").eq("id", user.id).single();
     const role = profile?.role as string | undefined;
 
-    // Superadmin always lands on /super. Sending them anywhere else creates a
-    // ping-pong because the firm/party layouts reject non-matching roles.
+    // Volunteers stick to /v/*; if they hit /firm or /party or /super, bounce to /v.
+    if ((isFirm || isParty || isSuper) && role === "volunteer") {
+      const url = req.nextUrl.clone();
+      url.pathname = "/v";
+      return NextResponse.redirect(url);
+    }
+    // /v/* requires volunteer role
+    if (isVRoot && !isVLogin && role !== "volunteer") {
+      const url = req.nextUrl.clone();
+      url.pathname = role === "superadmin" ? "/super" : role === "party_viewer" ? "/party" : "/firm";
+      return NextResponse.redirect(url);
+    }
+
+    // Superadmin always lands on /super
     if ((isFirm || isParty) && role === "superadmin") {
       const url = req.nextUrl.clone();
       url.pathname = "/super";
@@ -66,6 +84,7 @@ export async function middleware(req: NextRequest) {
     }
   }
 
+  // Authenticated user landing on /login or / — send them to their home
   if (user && isAuthRoute) {
     const { data: profile } = await supabase
       .from("users").select("role").eq("id", user.id).single();
@@ -73,6 +92,7 @@ export async function middleware(req: NextRequest) {
     const url = req.nextUrl.clone();
     url.pathname = role === "superadmin" ? "/super"
       : role === "party_viewer" ? "/party"
+      : role === "volunteer" ? "/v"
       : "/firm";
     return NextResponse.redirect(url);
   }

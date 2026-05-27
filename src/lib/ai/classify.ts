@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getOpenAI, MODEL_CLASSIFIER } from "./openai";
+import { jsonCall, MODEL_CLASSIFIER } from "./anthropic";
 import { CONSTITUENCIES, DISTRICTS, ISSUES } from "@/lib/seed/ap-data";
 
 // Output schema (matches /classifications table). Names are returned by the
@@ -61,8 +61,52 @@ Given a batch of social/news events, return a JSON object {"results": [...]} whe
 
 Rules:
 - For non-AP content (e.g. national news with no AP angle), set district/constituency/mla null and snt_vector low.
-- Do NOT invent constituency or MLA names not in the lists above.
-- Output JSON only. No prose.`;
+- Do NOT invent constituency or MLA names not in the lists above.`;
+
+// JSON schema enforced by the tool-use call. Anthropic will conform the
+// tool input to this; we still validate with zod after.
+const SCHEMA = {
+  type: "object",
+  properties: {
+    results: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          source_id: { type: "string" },
+          language: { type: "string" },
+          entities: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                type: { type: "string" },
+                value: { type: "string" },
+                confidence: { type: "number" },
+              },
+              required: ["type", "value", "confidence"],
+            },
+          },
+          sentiment: { type: "number" },
+          sentiment_justification: { type: "string" },
+          district: { type: ["string", "null"] },
+          constituency: { type: ["string", "null"] },
+          mla: { type: ["string", "null"] },
+          topic_tags: { type: "array", items: { type: "string" } },
+          snt_velocity: { type: "number" },
+          snt_credibility: { type: "number" },
+          snt_vector: { type: "number" },
+        },
+        required: [
+          "source_id", "language", "entities", "sentiment", "sentiment_justification",
+          "district", "constituency", "mla", "topic_tags",
+          "snt_velocity", "snt_credibility", "snt_vector",
+        ],
+      },
+    },
+  },
+  required: ["results"],
+};
 
 function compositeScore(velocity: number, credibility: number, vector: number) {
   // Weighted: vector and velocity matter more than credibility for prioritisation.
@@ -71,7 +115,6 @@ function compositeScore(velocity: number, credibility: number, vector: number) {
 
 export async function classifyBatch(events: ClassifyInput[]): Promise<Array<ClassifyOne & { snt_score: number }>> {
   if (events.length === 0) return [];
-  const openai = getOpenAI();
 
   const userPayload = events.map((e) => ({
     source_id: e.source_id,
@@ -81,20 +124,19 @@ export async function classifyBatch(events: ClassifyInput[]): Promise<Array<Clas
     url: e.url ?? "",
   }));
 
-  const response = await openai.chat.completions.create({
+  const raw = await jsonCall<unknown>({
     model: MODEL_CLASSIFIER,
-    response_format: { type: "json_object" },
+    system: SYSTEM,
+    user: JSON.stringify({ events: userPayload }),
+    schema: SCHEMA,
+    toolName: "emit_classifications",
+    toolDescription: "Return the array of classification results, one per input event.",
     temperature: 0.1,
-    messages: [
-      { role: "system", content: SYSTEM },
-      { role: "user", content: JSON.stringify({ events: userPayload }) },
-    ],
+    // Scales with batch size — every event can produce a long justification.
+    maxTokens: Math.min(8192, 600 + events.length * 400),
   });
 
-  const raw = response.choices[0]?.message?.content;
-  if (!raw) throw new Error("classifier: empty response");
-
-  const parsed = ClassifyBatch.safeParse(JSON.parse(raw));
+  const parsed = ClassifyBatch.safeParse(raw);
   if (!parsed.success) {
     throw new Error(`classifier: schema mismatch — ${parsed.error.message.slice(0, 200)}`);
   }

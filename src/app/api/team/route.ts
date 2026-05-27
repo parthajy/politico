@@ -81,10 +81,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: pErr.message }, { status: 500 });
   }
 
-  // For volunteers, mint a long-lived session token (used by the PWA)
+  // For volunteers: mint a long-lived token AND set the auth-user password to it.
+  // The PWA login flow signs the volunteer in with email + token-as-password — this
+  // gives them a regular Supabase session (so RLS applies normally) without us
+  // needing to roll a separate token-session layer in this codebase.
   let token: string | null = null;
   if (body.role === "volunteer") {
-    token = randomBytes(32).toString("base64url");
+    token = `sv_v_${randomBytes(20).toString("base64url")}`;
+    await admin.auth.admin.updateUserById(created.user.id, { password: token });
     await admin.from("volunteer_sessions").upsert({
       user_id: created.user.id,
       token,

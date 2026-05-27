@@ -4,7 +4,7 @@ import { fetchGdelt } from "@/lib/sources/gdelt";
 import { fetchRss } from "@/lib/sources/rss";
 import { fetchYouTube } from "@/lib/sources/youtube";
 import { classifyBatch, type ClassifyInput } from "@/lib/ai/classify";
-import { MODEL_CLASSIFIER } from "@/lib/ai/openai";
+import { MODEL_CLASSIFIER } from "@/lib/ai/anthropic";
 import type { RawEvent, EventSource } from "@/lib/sources/types";
 import { CONSTITUENCIES, DISTRICTS } from "@/lib/seed/ap-data";
 
@@ -50,7 +50,7 @@ export async function runIngestAll(): Promise<IngestSummary[]> {
 }
 
 // Hard cap on events classified per cycle. Keeps cron + Refresh bounded
-// (and the OpenAI bill in check). Newest published_at first.
+// (and the AI bill in check). Newest published_at first.
 // Lowered from 40 → 20 to keep the cycle comfortably under the 60s
 // Vercel-Hobby serverless timeout. Excess events still get inserted and
 // are picked up by the next cron run.

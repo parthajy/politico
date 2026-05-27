@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getOpenAI, MODEL_BRIEF } from "./openai";
+import { jsonCall, MODEL_BRIEF } from "./anthropic";
 
 export const Narrative = z.object({
   label: z.string().min(4),
@@ -44,30 +44,50 @@ For each narrative return:
 Rules:
 - 3-6 narratives. Quality over coverage. Skip events that don't fit.
 - Recommended_response should reference outlets, voices, or constituencies by name when possible.
-- If only 1-2 narratives exist worth surfacing, return only those — don't pad.
+- If only 1-2 narratives exist worth surfacing, return only those — don't pad.`;
 
-Output strict JSON: {"narratives": [...]}`;
+const SCHEMA = {
+  type: "object",
+  properties: {
+    narratives: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          label: { type: "string" },
+          summary: { type: "string" },
+          sentiment_lean: { type: "string", enum: ["hostile", "mixed", "supportive"] },
+          trajectory: { type: "string", enum: ["rising", "steady", "fading"] },
+          key_event_ids: { type: "array", items: { type: "string" } },
+          recommended_response: { type: "string" },
+        },
+        required: ["label", "summary", "sentiment_lean", "trajectory", "key_event_ids", "recommended_response"],
+      },
+    },
+  },
+  required: ["narratives"],
+};
 
 export async function detectNarratives(events: NarrativeInput[]): Promise<Narrative[]> {
   if (events.length < 3) return [];
-  const openai = getOpenAI();
-  const r = await openai.chat.completions.create({
+
+  const raw = await jsonCall<unknown>({
     model: MODEL_BRIEF,
-    response_format: { type: "json_object" },
+    system: SYSTEM,
+    user: JSON.stringify({ events: events.map((e) => ({
+      event_id: e.event_id, title: e.title, body: (e.body ?? "").slice(0, 250),
+      source: e.source, snt_score: e.snt_score, sentiment: e.sentiment,
+      district: e.district, constituency: e.constituency, topic_tags: e.topic_tags,
+      published_at: e.published_at,
+    })) }),
+    schema: SCHEMA,
+    toolName: "emit_narratives",
+    toolDescription: "Cluster the events into 3-6 narratives.",
     temperature: 0.4,
-    messages: [
-      { role: "system", content: SYSTEM },
-      { role: "user", content: JSON.stringify({ events: events.map((e) => ({
-        event_id: e.event_id, title: e.title, body: (e.body ?? "").slice(0, 250),
-        source: e.source, snt_score: e.snt_score, sentiment: e.sentiment,
-        district: e.district, constituency: e.constituency, topic_tags: e.topic_tags,
-        published_at: e.published_at,
-      })) }) },
-    ],
+    maxTokens: 3000,
   });
-  const raw = r.choices[0]?.message?.content;
-  if (!raw) throw new Error("empty response");
-  const parsed = Batch.safeParse(JSON.parse(raw));
+
+  const parsed = Batch.safeParse(raw);
   if (!parsed.success) throw new Error(`schema mismatch: ${parsed.error.message.slice(0, 200)}`);
   const valid = new Set(events.map((e) => e.event_id));
   return parsed.data.narratives.map((n) => ({ ...n, key_event_ids: n.key_event_ids.filter((id) => valid.has(id)) }));

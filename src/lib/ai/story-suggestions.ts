@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getOpenAI, MODEL_BRIEF } from "./openai";
+import { jsonCall, MODEL_BRIEF } from "./anthropic";
 
 export const StorySuggestion = z.object({
   source_event_id: z.string().uuid(),
@@ -51,11 +51,32 @@ Examples of angle reframing:
 - "Landslide kills three" → "On-ground response: govt teams reach affected villages within X hours"
 - "Bandh paralyses Itanagar" → "Stakeholder dialogue: govt convenes community leaders on immigration concerns"
 
-Output strict JSON: {"suggestions": [...]}. Always return at least one suggestion per input event.`;
+Always return at least one suggestion per input event.`;
+
+const SCHEMA = {
+  type: "object",
+  properties: {
+    suggestions: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          source_event_id: { type: "string" },
+          angle: { type: "string" },
+          why_now: { type: "string" },
+          suggested_voice_name: { type: ["string", "null"] },
+          suggested_outlet: { type: ["string", "null"] },
+          draft_pitch: { type: "string" },
+        },
+        required: ["source_event_id", "angle", "why_now", "suggested_voice_name", "suggested_outlet", "draft_pitch"],
+      },
+    },
+  },
+  required: ["suggestions"],
+};
 
 export async function suggestStories(inputs: SuggestInput[]): Promise<StorySuggestion[]> {
   if (inputs.length === 0) return [];
-  const openai = getOpenAI();
   const payload = inputs.map((i) => ({
     event_id: i.event.id,
     title: i.event.title,
@@ -69,19 +90,18 @@ export async function suggestStories(inputs: SuggestInput[]): Promise<StorySugge
     voices_in_district: i.voices_in_district.slice(0, 8),
   }));
 
-  const r = await openai.chat.completions.create({
+  const raw = await jsonCall<unknown>({
     model: MODEL_BRIEF,
-    response_format: { type: "json_object" },
+    system: SYSTEM,
+    user: JSON.stringify({ events: payload }),
+    schema: SCHEMA,
+    toolName: "emit_story_suggestions",
+    toolDescription: "Propose exactly one story angle per event.",
     temperature: 0.7,
-    messages: [
-      { role: "system", content: SYSTEM },
-      { role: "user", content: JSON.stringify({ events: payload }) },
-    ],
+    maxTokens: Math.min(8192, 800 + inputs.length * 300),
   });
 
-  const raw = r.choices[0]?.message?.content;
-  if (!raw) throw new Error("empty response");
-  const parsed = Batch.safeParse(JSON.parse(raw));
+  const parsed = Batch.safeParse(raw);
   if (!parsed.success) throw new Error(`schema mismatch: ${parsed.error.message.slice(0, 200)}`);
   const valid = new Set(inputs.map((i) => i.event.id));
   return parsed.data.suggestions.filter((s) => valid.has(s.source_event_id));

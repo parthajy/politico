@@ -30,28 +30,53 @@ export default async function ConstituenciesOverview({ searchParams }: { searchP
     if (t.scope_id != null) threatByConst.set(t.scope_id, { threat_band: t.threat_band, headline: t.headline });
   }
 
-  const enriched = await Promise.all((constituencies ?? []).map(async (c) => {
+  // Batch all per-constituency aggregations into 4 queries (was 240 before).
+  // - One query for all classifications in window, then bucket by constituency_id
+  // - One query for all sentiment_snapshots in window
+  const constituencyIds = (constituencies ?? []).map((c) => c.id);
+
+  const [allClsRes, allSnapsRes] = await Promise.all([
+    sb.from("classifications")
+      .select("constituency_id, snt_score, sentiment, topic_tags, events!inner(title)")
+      .in("constituency_id", constituencyIds)
+      .gte("classified_at", since),
+    sb.from("sentiment_snapshots")
+      .select("scope_id, date, net_sentiment")
+      .eq("scope_type", "constituency")
+      .in("scope_id", constituencyIds)
+      .gte("date", sinceDay)
+      .order("date", { ascending: false }),
+  ]);
+
+  // Bucket classifications by constituency
+  type ClsRow = { snt_score: number | null; sentiment: number | null; topic_tags: string[] | null; events: { title: string } | null };
+  const clsByConst = new Map<number, ClsRow[]>();
+  for (const r of (allClsRes.data ?? []) as unknown as (ClsRow & { constituency_id: number })[]) {
+    if (r.constituency_id == null) continue;
+    const list = clsByConst.get(r.constituency_id) ?? [];
+    list.push(r);
+    clsByConst.set(r.constituency_id, list);
+  }
+  // Pick the most recent snapshot per constituency
+  const snapByConst = new Map<number, number>();
+  for (const r of (allSnapsRes.data ?? [])) {
+    if (r.scope_id == null) continue;
+    if (!snapByConst.has(r.scope_id)) snapByConst.set(r.scope_id, Number(r.net_sentiment));
+  }
+
+  const enriched = (constituencies ?? []).map((c) => {
     const m = (c.mlas as unknown) as { id: number; name: string; party: string | null; is_minister: boolean; is_cm: boolean; is_deputy_cm: boolean } | null;
     const d = (c.districts as unknown) as { name: string } | null;
 
-    const [{ count: total }, { count: neg }, { data: topSignal }, { data: lastSnap }] = await Promise.all([
-      sb.from("classifications").select("event_id", { count: "exact", head: true }).eq("constituency_id", c.id).gte("classified_at", since),
-      sb.from("classifications").select("event_id", { count: "exact", head: true }).eq("constituency_id", c.id).gte("classified_at", since).lt("sentiment", -0.15),
-      sb.from("classifications").select("snt_score, sentiment, topic_tags, events!inner(title)")
-        .eq("constituency_id", c.id).gte("classified_at", since)
-        .order("snt_score", { ascending: false, nullsFirst: false }).limit(1).maybeSingle(),
-      sb.from("sentiment_snapshots").select("net_sentiment").eq("scope_type", "constituency").eq("scope_id", c.id)
-        .gte("date", sinceDay).order("date", { ascending: false }).limit(1).maybeSingle(),
-    ]);
+    const cls = clsByConst.get(c.id) ?? [];
+    const t = cls.length;
+    const n = cls.filter((r) => (r.sentiment ?? 0) < -0.15).length;
+    // Top signal = highest SNT score
+    const top = cls.slice().sort((a, b) => (b.snt_score ?? 0) - (a.snt_score ?? 0))[0];
 
-    const t = total ?? 0;
-    const n = neg ?? 0;
     const negShare = t > 0 ? n / t : 0;
     const risk = t === 0 ? 0 : Math.min(1, negShare * 0.7 + Math.min(1, t / 20) * 0.3);
     const riskBand = risk >= 0.6 ? "high" : risk >= 0.3 ? "medium" : "low";
-
-    const topJoin = topSignal ? (topSignal.events as unknown) as { title: string } : null;
-
     const tt = threatByConst.get(c.id);
 
     return {
@@ -62,13 +87,13 @@ export default async function ConstituenciesOverview({ searchParams }: { searchP
       neg_count: n,
       risk,
       risk_band: riskBand as "low" | "medium" | "high",
-      top_signal_title: topJoin?.title ?? null,
-      top_signal_tags: (topSignal?.topic_tags ?? []) as string[],
-      net_sentiment: lastSnap?.net_sentiment != null ? Number(lastSnap.net_sentiment) : null,
+      top_signal_title: top?.events?.title ?? null,
+      top_signal_tags: (top?.topic_tags ?? []) as string[],
+      net_sentiment: snapByConst.get(c.id) ?? null,
       threat_band: tt?.threat_band as "low" | "medium" | "high" | "critical" | undefined,
       threat_headline: tt?.headline ?? null,
     };
-  }));
+  });
 
   // Filter + sort
   let filtered = enriched;

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getOpenAI, MODEL_BRIEF } from "./openai";
+import { jsonCall, MODEL_BRIEF } from "./anthropic";
 
 export const Recommendation = z.object({
   event_id: z.string().uuid(),
@@ -43,12 +43,30 @@ For each event return:
 Rules:
 - Already-escalated events should still get a recommendation — usually 'watch' to indicate next step.
 - Bias toward fewer 'escalate' picks (3–5 max) — the CMO can't absorb more.
-- 'story' should be reserved for events with a clear local angle and a sympathetic frame the govt could lead with.
-- Output strict JSON: {"recommendations": [...]}`;
+- 'story' should be reserved for events with a clear local angle and a sympathetic frame the govt could lead with.`;
+
+const SCHEMA = {
+  type: "object",
+  properties: {
+    recommendations: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          event_id: { type: "string" },
+          bucket: { type: "string", enum: ["escalate", "watch", "story", "noise"] },
+          why: { type: "string" },
+          action_note: { type: "string" },
+        },
+        required: ["event_id", "bucket", "why", "action_note"],
+      },
+    },
+  },
+  required: ["recommendations"],
+};
 
 export async function recommendForInbox(events: InboxEvent[]): Promise<Recommendation[]> {
   if (events.length === 0) return [];
-  const openai = getOpenAI();
   const userPayload = events.map((e) => ({
     event_id: e.event_id,
     title: e.title,
@@ -62,18 +80,18 @@ export async function recommendForInbox(events: InboxEvent[]): Promise<Recommend
     triage_status: e.triage_status,
   }));
 
-  const r = await openai.chat.completions.create({
-    model: MODEL_BRIEF, // gpt-4o for the strategic call
-    response_format: { type: "json_object" },
+  const raw = await jsonCall<unknown>({
+    model: MODEL_BRIEF,
+    system: SYSTEM,
+    user: JSON.stringify({ events: userPayload }),
+    schema: SCHEMA,
+    toolName: "emit_recommendations",
+    toolDescription: "Bucket each event and return the analyst recommendations.",
     temperature: 0.4,
-    messages: [
-      { role: "system", content: SYSTEM },
-      { role: "user", content: JSON.stringify({ events: userPayload }) },
-    ],
+    maxTokens: Math.min(8192, 800 + events.length * 200),
   });
-  const raw = r.choices[0]?.message?.content;
-  if (!raw) throw new Error("empty response from triage model");
-  const parsed = RecBatch.safeParse(JSON.parse(raw));
+
+  const parsed = RecBatch.safeParse(raw);
   if (!parsed.success) throw new Error(`triage schema mismatch: ${parsed.error.message.slice(0, 200)}`);
   // Filter to events we actually sent (defensive — model sometimes invents)
   const valid = new Set(events.map((e) => e.event_id));

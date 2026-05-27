@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { auditLog } from "@/lib/audit";
 import { buildAgendaContext, streamAgenda } from "@/lib/ai/cabinet-agenda";
-import { MODEL_BRIEF } from "@/lib/ai/openai";
+import { MODEL_BRIEF } from "@/lib/ai/anthropic";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 90;

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getOpenAI, MODEL_BRIEF } from "./openai";
+import { jsonCall, MODEL_BRIEF } from "./anthropic";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { subDays } from "date-fns";
 
@@ -24,9 +24,18 @@ Your answer must:
 - Cite specific events by their event_id when you reference them (use the cited_event_ids field).
 - Cite specific places, MLAs, dates when possible.
 - Be honest: if the corpus does not contain enough data to answer, say so in no_data_caveat AND set confidence to "low". Do NOT make things up.
-- Tone: senior, calm, direct. The reader is the CM or his principal advisor.
+- Tone: senior, calm, direct. The reader is the CM or his principal advisor.`;
 
-Output strict JSON: { answer, cited_event_ids (array of event_id strings actually referenced), confidence (high/medium/low), no_data_caveat (string or null) }.`;
+const SCHEMA = {
+  type: "object",
+  properties: {
+    answer: { type: "string" },
+    cited_event_ids: { type: "array", items: { type: "string" } },
+    confidence: { type: "string", enum: ["high", "medium", "low"] },
+    no_data_caveat: { type: ["string", "null"] },
+  },
+  required: ["answer", "cited_event_ids", "confidence", "no_data_caveat"],
+};
 
 export async function askDesk(question: string, lookbackDays = 14): Promise<Answer & { citations: AskCitation[] }> {
   const sb = createAdminClient();
@@ -58,20 +67,18 @@ export async function askDesk(question: string, lookbackDays = 14): Promise<Answ
     };
   });
 
-  const openai = getOpenAI();
-  const r = await openai.chat.completions.create({
+  const raw = await jsonCall<unknown>({
     model: MODEL_BRIEF,
-    response_format: { type: "json_object" },
+    system: SYSTEM,
+    user: JSON.stringify({ question, lookback_days: lookbackDays, corpus }),
+    schema: SCHEMA,
+    toolName: "emit_answer",
+    toolDescription: "Answer the question grounded in the corpus.",
     temperature: 0.3,
-    messages: [
-      { role: "system", content: SYSTEM },
-      { role: "user", content: JSON.stringify({ question, lookback_days: lookbackDays, corpus }) },
-    ],
+    maxTokens: 2000,
   });
 
-  const raw = r.choices[0]?.message?.content;
-  if (!raw) throw new Error("empty response");
-  const parsed = Answer.parse(JSON.parse(raw));
+  const parsed = Answer.parse(raw);
 
   // Hydrate citations
   const byId = new Map(corpus.map((c) => [c.event_id, c]));
