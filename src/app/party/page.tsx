@@ -11,6 +11,8 @@ import { SourceMixWidget } from "@/components/source-mix-widget";
 import { TopicMomentumWidget } from "@/components/topic-momentum-widget";
 import { MlaSpotlightWidget } from "@/components/mla-spotlight-widget";
 import { format, formatDistanceToNowStrict, subDays } from "date-fns";
+import { requireSession, isMinisterScope } from "@/lib/auth";
+import MinisterHome from "./minister-home";
 
 export const dynamic = "force-dynamic";
 
@@ -85,6 +87,12 @@ async function loadDashboard() {
 }
 
 export default async function PartyHome() {
+  const ctx = await requireSession();
+  // Minister-scoped party_viewer: render the personal desk and stop here.
+  if (isMinisterScope(ctx)) {
+    return <MinisterHome scope={ctx.scope} />;
+  }
+
   const d = await loadDashboard();
 
   return (

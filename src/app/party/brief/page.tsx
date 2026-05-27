@@ -1,13 +1,19 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Markdown } from "@/components/markdown";
 import { PrintButton } from "./print-button";
 import { format } from "date-fns";
+import { requireSession, isMinisterScope } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function PartyBrief({ searchParams }: { searchParams: { date?: string } }) {
+  const ctx = await requireSession();
+  // State-wide morning brief is CMO-only; ministers see their own desk instead.
+  if (isMinisterScope(ctx)) redirect("/party");
+
   const sb = createClient();
 
   let q = sb

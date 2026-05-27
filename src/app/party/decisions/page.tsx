@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
+import { requireSession, isMinisterScope } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -19,13 +20,30 @@ const KIND_LABELS: Record<string, string> = {
 };
 
 export default async function PartyDecisions() {
+  const ctx = await requireSession();
   const sb = createClient();
+
+  // For ministers: only decisions surfaced by signals about them or their seat.
+  let myEventIds: Set<string> | null = null;
+  if (isMinisterScope(ctx)) {
+    const s = ctx.scope;
+    const { data: cls } = await sb
+      .from("classifications")
+      .select("event_id")
+      .or(`mla_id.eq.${s.mla_id}${s.constituency_id ? `,constituency_id.eq.${s.constituency_id}` : ""}`)
+      .limit(5000);
+    myEventIds = new Set((cls ?? []).map((r) => r.event_id));
+  }
+
   const { data } = await sb
     .from("decisions")
     .select("id, title, summary, kind, decided_on, decided_by_role, triggering_event_ids, outcome")
     .order("decided_on", { ascending: false })
-    .limit(50);
-  const rows = (data ?? []) as Row[];
+    .limit(myEventIds ? 200 : 50);
+  let rows = (data ?? []) as Row[];
+  if (myEventIds) {
+    rows = rows.filter((d) => (d.triggering_event_ids ?? []).some((id) => myEventIds!.has(id))).slice(0, 50);
+  }
 
   const allEventIds = Array.from(new Set(rows.flatMap((r) => r.triggering_event_ids ?? [])));
   const eventById = new Map<string, { title: string }>();

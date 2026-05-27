@@ -13,7 +13,9 @@ const DEMO_ACCOUNTS = [
   { email: "super.partha@samvidya.demo", label: "Superadmin — Partha", role: "superadmin" },
   { email: "firm.admin@signaldesk.demo", label: "Firm — Admin", role: "firm_admin" },
   { email: "firm.analyst@signaldesk.demo", label: "Firm — Analyst", role: "firm_analyst" },
-  { email: "party.cm@signaldesk.demo", label: "Party — CMO", role: "party_viewer" },
+  { email: "firm.intern@samvidya.demo", label: "Firm — Intern (queue triage)", role: "firm_intern" },
+  { email: "party.cm@signaldesk.demo", label: "CMO — Chief Minister's office", role: "party_viewer" },
+  { email: "minister.health@samvidya.demo", label: "Minister — Health portfolio (scoped)", role: "party_viewer" },
 ];
 
 export default function LoginPage() {

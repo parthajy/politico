@@ -1,16 +1,25 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { InfoTooltip } from "@/components/info-tooltip";
 import { sentimentColor } from "@/lib/format";
 import { subDays } from "date-fns";
+import { requireSession, isMinisterScope } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 type SP = { sort?: "risk" | "name" | "district"; risk?: "all" | "high" | "medium" | "low" };
 
 export default async function ConstituenciesOverview({ searchParams }: { searchParams: SP }) {
+  const ctx = await requireSession();
+  if (isMinisterScope(ctx)) {
+    // Minister sees only their own seat — bounce them straight to it.
+    if (ctx.scope.constituency_id) redirect(`/party/constituency/${ctx.scope.constituency_id}`);
+    redirect("/party");
+  }
+
   const sb = createClient();
   const since = subDays(new Date(), 30).toISOString();
   const sinceDay = subDays(new Date(), 30).toISOString().slice(0, 10);

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNowStrict } from "date-fns";
+import { requireSession, isMinisterScope } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -19,12 +20,24 @@ type SummaryRow = {
 const ORDER: Record<SummaryRow["threat_band"], number> = { critical: 0, high: 1, medium: 2, low: 3 };
 
 export default async function PartyThreats() {
+  const ctx = await requireSession();
   const sb = createClient();
   const { data } = await sb
     .from("threat_assessments_summary")
     .select("*")
     .order("generated_at", { ascending: false });
-  const rows = (data ?? []) as SummaryRow[];
+  let rows = (data ?? []) as SummaryRow[];
+
+  // Minister-scoped: see only your own assessment + your constituency (if any).
+  if (isMinisterScope(ctx)) {
+    const s = ctx.scope;
+    rows = rows.filter((r) => {
+      if (s.is_cm) return r.scope_type === "cm";
+      if (r.scope_type === "minister" && r.scope_id === s.mla_id) return true;
+      if (r.scope_type === "constituency" && r.scope_id != null && r.scope_id === s.constituency_id) return true;
+      return false;
+    });
+  }
   rows.sort((a, b) => ORDER[a.threat_band] - ORDER[b.threat_band]);
 
   const cm = rows.find((r) => r.scope_type === "cm");

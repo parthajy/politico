@@ -14,6 +14,7 @@ const NAV: (NavItem & { adminOnly?: boolean; internToo?: boolean })[] = [
   { href: "/firm/agenda", label: "Agenda" },
   { href: "/firm/decisions", label: "Decisions" },
   { href: "/firm/threats", label: "Threats", adminOnly: true },
+  { href: "/firm/brain", label: "Brain map" },
   { href: "/firm/audit", label: "Audit", adminOnly: true },
 ];
 

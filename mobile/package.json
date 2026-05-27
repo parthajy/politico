@@ -1,0 +1,20 @@
+{
+  "name": "samvidya-field",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Capacitor wrapper for the Samvidya volunteer PWA at /v/*",
+  "scripts": {
+    "sync": "cap sync",
+    "open:android": "cap open android",
+    "build:android": "cd android && ./gradlew assembleRelease"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/camera": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/splash-screen": "^7.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.0.0"
+  }
+}

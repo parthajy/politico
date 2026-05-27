@@ -1,17 +1,25 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SentimentTrend } from "@/components/sentiment-sparkline";
 import { sentimentColor, sntBadge, shortSource } from "@/lib/format";
 import { formatDistanceToNowStrict, subDays } from "date-fns";
+import { requireSession, isMinisterScope } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function DistrictPage({ params }: { params: { id: string } }) {
   const id = parseInt(params.id, 10);
   if (Number.isNaN(id)) notFound();
+
+  const ctx = await requireSession();
+  // Ministers can only see their own district view (if any).
+  if (isMinisterScope(ctx) && ctx.scope.district_id !== id) {
+    redirect("/party");
+  }
+
   const sb = createClient();
 
   const { data: district } = await sb

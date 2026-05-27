@@ -7,17 +7,20 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { toast } from "sonner";
 
-type RoleOpt = "volunteer" | "firm_intern" | "firm_analyst" | "firm_admin" | "superadmin";
+type RoleOpt = "volunteer" | "firm_intern" | "firm_analyst" | "firm_admin" | "superadmin" | "party_viewer";
 
 const ROLE_TABS: { v: RoleOpt; l: string; hint: string }[] = [
   { v: "volunteer", l: "Volunteer", hint: "Field network · token-based access (PWA)." },
   { v: "firm_intern", l: "Intern", hint: "Office triage · email only, signs in via OTP." },
   { v: "firm_analyst", l: "Analyst", hint: "Firm workbench · email only, signs in via OTP." },
   { v: "firm_admin", l: "Admin", hint: "Firm admin · sees audit log, otherwise like analyst." },
+  { v: "party_viewer", l: "CMO / Minister", hint: "Govt principal · OTP sign-in. Leave 'Scope' empty for CMO (sees the whole state); pick an MLA to make this a minister account (sees only their portfolio + constituency)." },
   { v: "superadmin", l: "Superadmin", hint: "Full access. Requires confirmation." },
 ];
 
-export function TeamClient({ districts }: { districts: { id: number; name: string }[] }) {
+type Minister = { id: number; name: string; portfolio: string | null; is_cm: boolean; is_deputy_cm: boolean };
+
+export function TeamClient({ districts, ministers }: { districts: { id: number; name: string }[]; ministers: Minister[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -29,12 +32,13 @@ export function TeamClient({ districts }: { districts: { id: number; name: strin
     phone: "",
     photo_url: "",
     district_id: "",
+    scope_mla_id: "",
     languages: "",
     notes: "",
   });
 
   function reset() {
-    setForm({ role: "volunteer", full_name: "", email: "", phone: "", photo_url: "", district_id: "", languages: "", notes: "" });
+    setForm({ role: "volunteer", full_name: "", email: "", phone: "", photo_url: "", district_id: "", scope_mla_id: "", languages: "", notes: "" });
   }
 
   async function submit(e: React.FormEvent) {
@@ -60,6 +64,7 @@ export function TeamClient({ districts }: { districts: { id: number; name: strin
           phone: form.phone || undefined,
           photo_url: form.photo_url || undefined,
           district_id: form.district_id ? parseInt(form.district_id, 10) : null,
+          scope_mla_id: form.role === "party_viewer" && form.scope_mla_id ? parseInt(form.scope_mla_id, 10) : null,
           languages: langs,
           notes: form.notes || undefined,
         }),
@@ -83,6 +88,7 @@ export function TeamClient({ districts }: { districts: { id: number; name: strin
 
   const showDistrict = form.role === "volunteer";
   const showLanguages = form.role === "volunteer";
+  const showMinisterScope = form.role === "party_viewer";
 
   return (
     <>
@@ -131,6 +137,29 @@ export function TeamClient({ districts }: { districts: { id: number; name: strin
                   <Input id="photo" type="url" value={form.photo_url} onChange={(e) => setForm({ ...form, photo_url: e.target.value })} placeholder="https://… (paste any image URL)" />
                 </div>
               </div>
+
+              {showMinisterScope && (
+                <div>
+                  <Label htmlFor="scope">Scope to minister (leave empty for CMO / CM)</Label>
+                  <select
+                    id="scope"
+                    value={form.scope_mla_id}
+                    onChange={(e) => setForm({ ...form, scope_mla_id: e.target.value })}
+                    className="mt-1 block h-9 w-full rounded-md border border-border bg-white px-2 text-sm"
+                  >
+                    <option value="">— CMO / CM (sees entire state) —</option>
+                    {ministers.map((m) => (
+                      <option key={m.id} value={String(m.id)}>
+                        {m.name}{m.is_cm ? " · CM" : m.is_deputy_cm ? " · Dy CM" : ""}{m.portfolio ? ` — ${m.portfolio}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-[11px] text-muted">
+                    Minister-scoped accounts see only their own constituency, their threats, their decisions, their brain map.
+                    They cannot view other ministers&apos; data.
+                  </p>
+                </div>
+              )}
 
               {(showDistrict || showLanguages) && (
                 <div className="grid gap-3 md:grid-cols-2">

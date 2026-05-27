@@ -9,12 +9,15 @@ import { auditLog } from "@/lib/audit";
 export const dynamic = "force-dynamic";
 
 const Create = z.object({
-  role: z.enum(["volunteer", "firm_intern", "firm_analyst", "firm_admin", "superadmin"]),
+  role: z.enum(["volunteer", "firm_intern", "firm_analyst", "firm_admin", "superadmin", "party_viewer"]),
   full_name: z.string().min(2).max(120),
   email: z.string().email().optional().or(z.literal("")),
   phone: z.string().max(40).optional().or(z.literal("")),
   photo_url: z.string().url().optional().or(z.literal("")),
   district_id: z.number().int().nullable().optional(),
+  // Only meaningful for party_viewer: when set, this user is a cabinet
+  // minister scoped to ONLY this MLA's universe. Null = CMO (full state view).
+  scope_mla_id: z.number().int().nullable().optional(),
   languages: z.array(z.string()).optional(),
   notes: z.string().max(2000).optional().or(z.literal("")),
 });
@@ -42,6 +45,10 @@ export async function POST(req: Request) {
   // Interns sign in via email-OTP; only email required.
   if (body.role === "firm_intern" && !body.email) {
     return NextResponse.json({ ok: false, error: "interns need an email (sign-in via OTP)" }, { status: 400 });
+  }
+  // CMO / minister accounts also use email OTP.
+  if (body.role === "party_viewer" && !body.email) {
+    return NextResponse.json({ ok: false, error: "CMO / minister accounts need an email (sign-in via OTP)" }, { status: 400 });
   }
 
   const admin = createAdminClient();
@@ -72,6 +79,7 @@ export async function POST(req: Request) {
     photo_url: body.photo_url || null,
     phone: body.phone || null,
     district_id: body.district_id ?? null,
+    scope_mla_id: body.role === "party_viewer" ? (body.scope_mla_id ?? null) : null,
     languages: body.languages ?? [],
     joined_at: new Date().toISOString().slice(0, 10),
     active: true,
@@ -103,7 +111,7 @@ export async function POST(req: Request) {
     action: "team_member_create",
     entity_type: "users",
     entity_id: created.user.id,
-    metadata: { role: body.role, name: body.full_name, district_id: body.district_id ?? null },
+    metadata: { role: body.role, name: body.full_name, district_id: body.district_id ?? null, scope_mla_id: body.scope_mla_id ?? null },
   });
 
   return NextResponse.json({

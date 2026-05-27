@@ -4,19 +4,40 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { StarButton } from "@/components/star-button";
 import { formatDistanceToNowStrict } from "date-fns";
+import { requireSession, isMinisterScope } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 type SP = { severity?: "s1" | "s2" | "s3" };
 
 export default async function PartyAlerts({ searchParams }: { searchParams: SP }) {
+  const ctx = await requireSession();
   const sb = createClient();
+
+  // For ministers: pre-compute the set of event_ids tagged to them, then
+  // restrict alerts to ones referencing those events.
+  let scopedEventIds: string[] | null = null;
+  if (isMinisterScope(ctx)) {
+    const s = ctx.scope;
+    const { data: cls } = await sb
+      .from("classifications")
+      .select("event_id")
+      .or(`mla_id.eq.${s.mla_id}${s.constituency_id ? `,constituency_id.eq.${s.constituency_id}` : ""}`)
+      .limit(5000);
+    scopedEventIds = (cls ?? []).map((r) => r.event_id);
+    if (scopedEventIds.length === 0) {
+      // No matching events → no matching alerts. Render the empty state cleanly.
+      scopedEventIds = ["00000000-0000-0000-0000-000000000000"];
+    }
+  }
+
   let q = sb
     .from("alerts")
     .select("id, severity, title, body, event_id, created_at, resolved_at, classifications:event_id(constituency_id, district_id)")
     .order("created_at", { ascending: false })
     .limit(50);
   if (searchParams.severity) q = q.eq("severity", searchParams.severity);
+  if (scopedEventIds) q = q.in("event_id", scopedEventIds);
   const { data: alerts } = await q;
 
   const active = (alerts ?? []).filter((a) => !a.resolved_at);

@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TeamClient } from "./team-client";
+import { DemoSeedButton } from "./demo-seed-button";
 
 export const dynamic = "force-dynamic";
 
@@ -13,20 +14,30 @@ type Row = {
   phone: string | null;
   photo_url: string | null;
   district_id: number | null;
+  scope_mla_id: number | null;
   languages: string[] | null;
   joined_at: string | null;
   active: boolean | null;
   notes: string | null;
   districts: { name: string } | null;
+  scope_mla: { id: number; name: string; portfolio: string | null; is_cm: boolean | null; is_deputy_cm: boolean | null } | null;
 };
 
 export default async function SuperTeamPage() {
   const sb = createClient();
-  const { data: districts } = await sb.from("districts").select("id, name").order("name");
+  const [{ data: districts }, { data: ministers }] = await Promise.all([
+    sb.from("districts").select("id, name").order("name"),
+    sb.from("mlas")
+      .select("id, name, portfolio, is_cm, is_deputy_cm")
+      .eq("is_minister", true)
+      .order("is_cm", { ascending: false })
+      .order("is_deputy_cm", { ascending: false })
+      .order("name"),
+  ]);
   const { data: members } = await sb
     .from("users")
-    .select("id, full_name, email, role, phone, photo_url, district_id, languages, joined_at, active, notes, districts(name)")
-    .in("role", ["superadmin", "volunteer", "firm_intern", "firm_admin", "firm_analyst"])
+    .select("id, full_name, email, role, phone, photo_url, district_id, scope_mla_id, languages, joined_at, active, notes, districts(name), scope_mla:mlas!users_scope_mla_id_fkey(id, name, portfolio, is_cm, is_deputy_cm)")
+    .in("role", ["superadmin", "volunteer", "firm_intern", "firm_admin", "firm_analyst", "party_viewer"])
     .order("role")
     .order("full_name");
 
@@ -61,6 +72,7 @@ export default async function SuperTeamPage() {
   const firmStaff = rows.filter((r) => r.role === "firm_admin" || r.role === "firm_analyst");
   const interns = rows.filter((r) => r.role === "firm_intern");
   const volunteers = rows.filter((r) => r.role === "volunteer");
+  const govtPrincipals = rows.filter((r) => r.role === "party_viewer");
 
   return (
     <div className="container mx-auto max-w-6xl px-6 py-10">
@@ -70,12 +82,59 @@ export default async function SuperTeamPage() {
         Only superadmin can create, deactivate, or rotate access. Volunteers get a token; interns + analysts + admins sign in by email OTP.
       </p>
 
-      <TeamClient districts={districts ?? []} />
+      <div className="mt-4 flex items-center justify-between rounded-md border border-dashed border-border bg-white/40 px-3 py-2">
+        <div className="text-[11px] text-muted">
+          <span className="font-medium text-navy">Demo accounts</span> — set passwords on the 6 fixture accounts so the login page buttons sign in directly. Idempotent; safe to re-run.
+        </div>
+        <DemoSeedButton />
+      </div>
+
+      <TeamClient
+        districts={districts ?? []}
+        ministers={(ministers ?? []).map((m) => ({
+          id: m.id,
+          name: m.name,
+          portfolio: m.portfolio,
+          is_cm: !!m.is_cm,
+          is_deputy_cm: !!m.is_deputy_cm,
+        }))}
+      />
 
       <Section title="Superadmins" count={superadmins.length}>
         {superadmins.length === 0 ? <Empty>Bootstrap your first one via seed script.</Empty> : (
           <ul className="space-y-2">
             {superadmins.map((s) => <li key={s.id} className="rounded border border-border bg-white p-3"><MemberHeader r={s} extra={<Badge variant="bronze">Superadmin</Badge>} /></li>)}
+          </ul>
+        )}
+      </Section>
+
+      <Section title="Government principals (CMO + ministers)" count={govtPrincipals.length}>
+        {govtPrincipals.length === 0 ? (
+          <Empty>None yet — use the form above to add the CMO (leave Scope blank) or a cabinet minister (pick their MLA in Scope).</Empty>
+        ) : (
+          <ul className="space-y-2">
+            {govtPrincipals.map((p) => {
+              const m = p.scope_mla;
+              const isCMO = !p.scope_mla_id;
+              const badge = isCMO
+                ? <Badge variant="bronze">CMO · sees state</Badge>
+                : m?.is_cm
+                  ? <Badge variant="bronze">CM</Badge>
+                  : m?.is_deputy_cm
+                    ? <Badge variant="bronze">Dy CM</Badge>
+                    : <Badge variant="navy">Minister</Badge>;
+              return (
+                <li key={p.id} className="rounded border border-border bg-white p-3">
+                  <MemberHeader r={p} extra={badge} />
+                  {m && (
+                    <div className="mt-2 text-[11px] text-muted">
+                      Scoped to <span className="font-medium text-navy">{m.name}</span>
+                      {m.portfolio ? ` · ${m.portfolio}` : ""}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </Section>

@@ -1,14 +1,20 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SentimentSparkline } from "@/components/sentiment-sparkline";
 import { ThreatCardLink } from "@/components/threat-card-link";
 import { subDays } from "date-fns";
+import { requireSession, isMinisterScope } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function CabinetGrid() {
+  const ctx = await requireSession();
+  // Cabinet grid is CMO-only — ministers can't browse peers.
+  if (isMinisterScope(ctx)) redirect("/party");
+
   const sb = createClient();
   const { data: ministers } = await sb
     .from("mlas")
