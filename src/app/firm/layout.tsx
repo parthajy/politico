@@ -4,8 +4,9 @@ import { Sidebar, type NavItem } from "@/components/sidebar";
 
 export const dynamic = "force-dynamic";
 
-const NAV: (NavItem & { adminOnly?: boolean })[] = [
+const NAV: (NavItem & { adminOnly?: boolean; internToo?: boolean })[] = [
   { href: "/firm", label: "Inbox" },
+  { href: "/firm/queue", label: "Triage queue", internToo: true },
   { href: "/firm/intake", label: "Intake" },
   { href: "/firm/voices", label: "Voices" },
   { href: "/firm/stories", label: "Stories" },
@@ -13,6 +14,7 @@ const NAV: (NavItem & { adminOnly?: boolean })[] = [
   { href: "/firm/briefs", label: "Briefs" },
   { href: "/firm/agenda", label: "Agenda" },
   { href: "/firm/decisions", label: "Decisions" },
+  { href: "/firm/team", label: "Team", adminOnly: true },
   { href: "/firm/threats", label: "Threats", adminOnly: true },
   { href: "/firm/audit", label: "Audit", adminOnly: true },
 ];
@@ -28,11 +30,17 @@ export default async function FirmLayout({ children }: { children: React.ReactNo
     .eq("id", user.id)
     .single();
 
-  if (!profile || (profile.role !== "firm_admin" && profile.role !== "firm_analyst")) {
+  const role = profile?.role;
+  // Allow firm_admin, firm_analyst, firm_intern (interns see a limited nav)
+  if (!profile || (role !== "firm_admin" && role !== "firm_analyst" && role !== "firm_intern")) {
     redirect("/party");
   }
 
-  const nav = NAV.filter((n) => !n.adminOnly || profile.role === "firm_admin");
+  let nav = NAV.filter((n) => !n.adminOnly || role === "firm_admin");
+  if (role === "firm_intern") {
+    // Interns see only the triage queue + glossary
+    nav = nav.filter((n) => n.internToo);
+  }
 
   return (
     <div className="flex min-h-screen bg-sand">

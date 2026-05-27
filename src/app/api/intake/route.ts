@@ -36,9 +36,13 @@ export async function POST(req: Request) {
   const { data: { user } } = await sb.auth.getUser();
   if (!user) return NextResponse.json({ ok: false, error: "unauthenticated" }, { status: 401 });
   const { data: profile } = await sb.from("users").select("role").eq("id", user.id).single();
-  if (profile?.role !== "firm_admin" && profile?.role !== "firm_analyst") {
+  const role = profile?.role;
+  if (role !== "firm_admin" && role !== "firm_analyst" && role !== "firm_intern" && role !== "volunteer") {
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
   }
+  // Volunteers' submissions go to the triage queue; firm staff (admin/analyst/intern)
+  // submissions become events directly (interns paste via /firm/intake for manual entries).
+  const routeToQueue = role === "volunteer";
 
   let body: z.infer<typeof Body>;
   try { body = Body.parse(await req.json()); } catch (e) {
@@ -84,8 +88,49 @@ export async function POST(req: Request) {
 
   const url = body.url || null;
   const source_id = url ? `url:${hash(url)}` : `intake:${user.id}:${Date.now()}`;
-
   const admin = createAdminClient();
+
+  // Volunteer flow: write to field_submissions queue, no event yet.
+  if (routeToQueue) {
+    const { data: sub, error: qErr } = await admin.from("field_submissions").insert({
+      submitter_id: user.id,
+      url,
+      note: body.note ?? null,
+      suggested_district_id: body.district_id ?? null,
+      platform: extracted?.platform ?? null,
+      extract_quality: extracted?.extract_quality ?? null,
+      ocr_transcript: ocr?.transcript ?? null,
+      ocr_caption: ocr?.caption ?? null,
+      ai_title: title,
+      ai_body: bodyText,
+      ai_classification: null,  // filled in if/when AI processes
+      status: (extracted?.needs_screenshot && !ocr) || extracted?.extract_quality === "empty" ? "needs_human" : "pending",
+    }).select("id").single();
+    if (qErr || !sub) {
+      return NextResponse.json({ ok: false, error: `queue insert: ${qErr?.message}` }, { status: 500 });
+    }
+    await auditLog({
+      user_id: user.id,
+      action: "field_submission",
+      entity_type: "field_submissions",
+      entity_id: sub.id,
+      metadata: {
+        had_url: !!body.url, had_image: !!body.image_data_url,
+        platform: extracted?.platform ?? null, extract_quality: extracted?.extract_quality ?? null,
+      },
+    });
+    return NextResponse.json({
+      ok: true, ms: Date.now() - t0,
+      submission_id: sub.id,
+      queued: true,
+      title,
+      platform: extracted?.platform ?? null,
+      extract_quality: extracted?.extract_quality ?? null,
+      message: "Submitted to the triage queue — an intern will review shortly.",
+    });
+  }
+
+  // Staff flow: direct event insertion + classification
   const { data: ev, error: insErr } = await admin.from("events").upsert({
     source: "manual",
     source_id,
