@@ -14,7 +14,7 @@ export function Sidebar({
   nav,
   userName,
 }: {
-  scope: "firm" | "party";
+  scope: "firm" | "party" | "super";
   nav: NavItem[];
   userName: string;
 }) {
@@ -35,7 +35,7 @@ export function Sidebar({
             <Image src="/logo.png" alt="Samvidya" width={1114} height={242} className="h-5 w-auto" priority />
           </Link>
           <div className="mt-2 text-[10px] uppercase tracking-[0.18em] text-bronze">
-            {scope === "firm" ? "Analyst workbench" : "Cabinet dashboard"}
+            {scope === "firm" ? "Analyst workbench" : scope === "party" ? "Cabinet dashboard" : "Superadmin"}
           </div>
         </div>
 

@@ -9,7 +9,7 @@ import { auditLog } from "@/lib/audit";
 export const dynamic = "force-dynamic";
 
 const Create = z.object({
-  role: z.enum(["volunteer", "firm_intern"]),
+  role: z.enum(["volunteer", "firm_intern", "firm_analyst", "firm_admin", "superadmin"]),
   full_name: z.string().min(2).max(120),
   email: z.string().email().optional().or(z.literal("")),
   phone: z.string().max(40).optional().or(z.literal("")),
@@ -17,7 +17,6 @@ const Create = z.object({
   district_id: z.number().int().nullable().optional(),
   languages: z.array(z.string()).optional(),
   notes: z.string().max(2000).optional().or(z.literal("")),
-  password: z.string().min(8).max(120).optional(),  // interns: required; volunteers: ignored
 });
 
 // POST /api/team — create a volunteer or intern user.
@@ -31,8 +30,8 @@ export async function POST(req: Request) {
   const { data: { user } } = await sb.auth.getUser();
   if (!user) return NextResponse.json({ ok: false, error: "unauthenticated" }, { status: 401 });
   const { data: me } = await sb.from("users").select("role").eq("id", user.id).single();
-  if (me?.role !== "firm_admin" && me?.role !== "firm_analyst") {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+  if (me?.role !== "superadmin") {
+    return NextResponse.json({ ok: false, error: "superadmin only" }, { status: 403 });
   }
 
   let body: z.infer<typeof Create>;
@@ -40,16 +39,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: (e as Error).message }, { status: 400 });
   }
 
-  if (body.role === "firm_intern" && (!body.email || !body.password)) {
-    return NextResponse.json({ ok: false, error: "interns need email and password" }, { status: 400 });
+  // Interns sign in via email-OTP; only email required.
+  if (body.role === "firm_intern" && !body.email) {
+    return NextResponse.json({ ok: false, error: "interns need an email (sign-in via OTP)" }, { status: 400 });
   }
 
   const admin = createAdminClient();
 
-  // Build a synthetic email for volunteers without one (auth.users requires unique email)
+  // Synthetic email for volunteers without one
   const email = body.email || `volunteer.${Date.now()}.${randomBytes(3).toString("hex")}@samvidya.local`;
-  // Volunteers get a random password they never use
-  const password = body.role === "firm_intern" ? body.password! : randomBytes(24).toString("base64url");
+  // No passwords on this platform — Supabase Auth requires a value, but it's never used.
+  // Interns + everyone else sign in via OTP via the login page.
+  const password = randomBytes(24).toString("base64url");
 
   // Create Supabase auth user (email auto-confirmed)
   const { data: created, error: cErr } = await admin.auth.admin.createUser({

@@ -138,7 +138,7 @@ export default async function CabinetGrid() {
                   <CardHeader>
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <div className="font-serif text-lg font-bold text-navy">{m.name}</div>
+                        <Link href={`/party/entity/person/${m.id}`} className="block font-serif text-lg font-bold text-navy hover:underline">{m.name}</Link>
                         <div className="mt-1 text-xs text-muted">
                           {m.constituency_name ?? "Constituency unverified"}
                           {m.party && <span> · {m.party}</span>}

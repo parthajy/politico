@@ -13,9 +13,7 @@ export async function middleware(req: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        getAll() {
-          return req.cookies.getAll();
-        },
+        getAll() { return req.cookies.getAll(); },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value }) => req.cookies.set(name, value));
           res = NextResponse.next({ request: { headers: reqHeaders } });
@@ -31,44 +29,44 @@ export async function middleware(req: NextRequest) {
   const isAuthRoute = path === "/login" || path === "/" || path.startsWith("/auth");
   const isFirm = path.startsWith("/firm");
   const isParty = path.startsWith("/party");
+  const isSuper = path.startsWith("/super");
 
-  if (!user && (isFirm || isParty)) {
+  if (!user && (isFirm || isParty || isSuper)) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
-  if (user && (isFirm || isParty)) {
+  if (user && (isFirm || isParty || isSuper)) {
     const { data: profile } = await supabase
-      .from("users")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
+      .from("users").select("role").eq("id", user.id).single();
     const role = profile?.role as string | undefined;
 
-    if (isFirm && role !== "firm_admin" && role !== "firm_analyst") {
+    if (isSuper && role !== "superadmin") {
+      const url = req.nextUrl.clone();
+      url.pathname = role === "party_viewer" ? "/party" : "/firm";
+      return NextResponse.redirect(url);
+    }
+    if (isFirm && role !== "firm_admin" && role !== "firm_analyst" && role !== "firm_intern" && role !== "superadmin") {
       const url = req.nextUrl.clone();
       url.pathname = "/party";
       return NextResponse.redirect(url);
     }
-    if (isParty && role !== "party_viewer") {
+    if (isParty && role !== "party_viewer" && role !== "superadmin") {
       const url = req.nextUrl.clone();
-      url.pathname = "/firm";
+      url.pathname = role === "superadmin" ? "/super" : "/firm";
       return NextResponse.redirect(url);
     }
   }
 
   if (user && isAuthRoute) {
     const { data: profile } = await supabase
-      .from("users")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-
+      .from("users").select("role").eq("id", user.id).single();
     const role = profile?.role as string | undefined;
     const url = req.nextUrl.clone();
-    url.pathname = role === "party_viewer" ? "/party" : "/firm";
+    url.pathname = role === "superadmin" ? "/super"
+      : role === "party_viewer" ? "/party"
+      : "/firm";
     return NextResponse.redirect(url);
   }
 

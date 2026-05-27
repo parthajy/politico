@@ -173,7 +173,12 @@ export function InboxClient({
                     {r.topic_tags?.length > 0 && (
                       <div className="mt-1 flex flex-wrap gap-1">
                         {r.topic_tags.slice(0, 2).map((t) => (
-                          <span key={t} className="rounded bg-sand-deep px-1.5 py-0.5 text-[10px] text-muted">{t}</span>
+                          <a
+                            key={t}
+                            href={`/firm/entity/topic/${encodeURIComponent(t)}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="rounded bg-sand-deep px-1.5 py-0.5 text-[10px] text-muted hover:text-bronze"
+                          >{t}</a>
                         ))}
                       </div>
                     )}

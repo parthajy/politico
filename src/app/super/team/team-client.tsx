@@ -7,33 +7,45 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { toast } from "sonner";
 
+type RoleOpt = "volunteer" | "firm_intern" | "firm_analyst" | "firm_admin" | "superadmin";
+
+const ROLE_TABS: { v: RoleOpt; l: string; hint: string }[] = [
+  { v: "volunteer", l: "Volunteer", hint: "Field network · token-based access (PWA)." },
+  { v: "firm_intern", l: "Intern", hint: "Office triage · email only, signs in via OTP." },
+  { v: "firm_analyst", l: "Analyst", hint: "Firm workbench · email only, signs in via OTP." },
+  { v: "firm_admin", l: "Admin", hint: "Firm admin · sees audit log, otherwise like analyst." },
+  { v: "superadmin", l: "Superadmin", hint: "Full access. Requires confirmation." },
+];
+
 export function TeamClient({ districts }: { districts: { id: number; name: string }[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [tokenJustIssued, setTokenJustIssued] = useState<{ name: string; token: string } | null>(null);
   const [form, setForm] = useState({
-    role: "volunteer" as "volunteer" | "firm_intern",
+    role: "volunteer" as RoleOpt,
     full_name: "",
     email: "",
     phone: "",
     photo_url: "",
     district_id: "",
-    languages: "",  // comma-separated
-    password: "",
+    languages: "",
     notes: "",
   });
 
   function reset() {
-    setForm({ role: "volunteer", full_name: "", email: "", phone: "", photo_url: "", district_id: "", languages: "", password: "", notes: "" });
+    setForm({ role: "volunteer", full_name: "", email: "", phone: "", photo_url: "", district_id: "", languages: "", notes: "" });
   }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.full_name.trim()) return;
-    if (form.role === "firm_intern" && (!form.email || form.password.length < 8)) {
-      toast.error("Interns need email + a password (8+ chars).");
+    if (form.role !== "volunteer" && !form.email) {
+      toast.error("This role needs an email (sign-in via OTP).");
       return;
+    }
+    if (form.role === "superadmin") {
+      if (!confirm(`Create ANOTHER superadmin (${form.full_name})? They will have full system access.`)) return;
     }
     setBusy(true);
     try {
@@ -50,7 +62,6 @@ export function TeamClient({ districts }: { districts: { id: number; name: strin
           district_id: form.district_id ? parseInt(form.district_id, 10) : null,
           languages: langs,
           notes: form.notes || undefined,
-          password: form.role === "firm_intern" ? form.password : undefined,
         }),
       });
       const j = await r.json();
@@ -58,7 +69,7 @@ export function TeamClient({ districts }: { districts: { id: number; name: strin
       if (j.token) {
         setTokenJustIssued({ name: form.full_name, token: j.token });
       } else {
-        toast.success(`${form.role === "firm_intern" ? "Intern" : "Volunteer"} created`);
+        toast.success(`${labelFor(form.role)} created`);
       }
       reset();
       setOpen(false);
@@ -70,11 +81,14 @@ export function TeamClient({ districts }: { districts: { id: number; name: strin
     }
   }
 
+  const showDistrict = form.role === "volunteer";
+  const showLanguages = form.role === "volunteer";
+
   return (
     <>
       <div className="mt-6 flex items-center justify-between">
         <p className="text-xs text-muted">
-          Volunteers get a one-time installable token (used by the field PWA). Interns get email+password (used in the office).
+          Volunteers get a token (PWA). Everyone else signs in via email OTP — no passwords stored.
         </p>
         <Button onClick={() => setOpen(true)} variant="bronze">Add team member</Button>
       </div>
@@ -83,11 +97,9 @@ export function TeamClient({ districts }: { districts: { id: number; name: strin
         <Card className="mt-4 border-bronze/40">
           <CardContent className="py-5">
             <form onSubmit={submit} className="space-y-4">
-              <div className="flex items-center gap-1 rounded border border-border bg-white p-1 text-xs w-fit">
-                {([
-                  { v: "volunteer", l: "Volunteer (field)" },
-                  { v: "firm_intern", l: "Intern (office)" },
-                ] as const).map((t) => (
+              {/* Role tabs */}
+              <div className="flex flex-wrap items-center gap-1 rounded border border-border bg-white p-1 text-xs">
+                {ROLE_TABS.map((t) => (
                   <button
                     type="button"
                     key={t.v}
@@ -96,6 +108,7 @@ export function TeamClient({ districts }: { districts: { id: number; name: strin
                   >{t.l}</button>
                 ))}
               </div>
+              <p className="text-[11px] text-muted">{ROLE_TABS.find((t) => t.v === form.role)?.hint}</p>
 
               <div className="grid gap-3 md:grid-cols-2">
                 <div>
@@ -103,8 +116,8 @@ export function TeamClient({ districts }: { districts: { id: number; name: strin
                   <Input id="name" required value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} />
                 </div>
                 <div>
-                  <Label htmlFor="email">Email{form.role === "firm_intern" && " (required)"}</Label>
-                  <Input id="email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder={form.role === "volunteer" ? "optional" : "intern@samvidya.app"} />
+                  <Label htmlFor="email">Email{form.role !== "volunteer" && " (required)"}</Label>
+                  <Input id="email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder={form.role === "volunteer" ? "optional" : "user@example.com"} />
                 </div>
               </div>
 
@@ -119,32 +132,29 @@ export function TeamClient({ districts }: { districts: { id: number; name: strin
                 </div>
               </div>
 
-              {form.role === "volunteer" && (
+              {(showDistrict || showLanguages) && (
                 <div className="grid gap-3 md:grid-cols-2">
-                  <div>
-                    <Label htmlFor="dist">District</Label>
-                    <select id="dist" value={form.district_id} onChange={(e) => setForm({ ...form, district_id: e.target.value })} className="mt-1 block h-9 w-full rounded-md border border-border bg-white px-2 text-sm">
-                      <option value="">— select —</option>
-                      {districts.map((d) => <option key={d.id} value={String(d.id)}>{d.name}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <Label htmlFor="langs">Languages (comma-separated)</Label>
-                    <Input id="langs" value={form.languages} onChange={(e) => setForm({ ...form, languages: e.target.value })} placeholder="English, Hindi, Nyishi" />
-                  </div>
-                </div>
-              )}
-
-              {form.role === "firm_intern" && (
-                <div>
-                  <Label htmlFor="pw">Password (8+ chars)</Label>
-                  <Input id="pw" type="password" required minLength={8} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} />
+                  {showDistrict && (
+                    <div>
+                      <Label htmlFor="dist">District</Label>
+                      <select id="dist" value={form.district_id} onChange={(e) => setForm({ ...form, district_id: e.target.value })} className="mt-1 block h-9 w-full rounded-md border border-border bg-white px-2 text-sm">
+                        <option value="">— select —</option>
+                        {districts.map((d) => <option key={d.id} value={String(d.id)}>{d.name}</option>)}
+                      </select>
+                    </div>
+                  )}
+                  {showLanguages && (
+                    <div>
+                      <Label htmlFor="langs">Languages (comma-separated)</Label>
+                      <Input id="langs" value={form.languages} onChange={(e) => setForm({ ...form, languages: e.target.value })} placeholder="English, Hindi, Nyishi" />
+                    </div>
+                  )}
                 </div>
               )}
 
               <div>
                 <Label htmlFor="notes">Notes (internal)</Label>
-                <Textarea id="notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Anything the firm should remember about this person" />
+                <Textarea id="notes" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Anything we should remember about this person" />
               </div>
 
               <div className="flex justify-end gap-2">
@@ -159,10 +169,10 @@ export function TeamClient({ districts }: { districts: { id: number; name: strin
       {tokenJustIssued && (
         <Card className="mt-4 border-positive/40 bg-positive/5">
           <CardContent className="py-5">
-            <div className="text-[10px] uppercase tracking-wider text-positive">Volunteer token · show once</div>
+            <div className="text-[10px] uppercase tracking-wider text-positive">Volunteer token · keep handy</div>
             <div className="mt-1 font-medium text-navy">{tokenJustIssued.name}</div>
             <p className="mt-2 text-xs text-muted">
-              Share this with the volunteer. Once they install the PWA and sign in once, the token rotates and this code stops working. Keep it confidential.
+              Share with the volunteer. They paste this into the PWA the first time. You can always view + rotate it from the volunteer&apos;s card below.
             </p>
             <div className="mt-3 break-all rounded border border-border bg-white px-3 py-2 font-mono text-xs">
               {tokenJustIssued.token}
@@ -176,4 +186,8 @@ export function TeamClient({ districts }: { districts: { id: number; name: strin
       )}
     </>
   );
+}
+
+function labelFor(r: RoleOpt): string {
+  return ROLE_TABS.find((t) => t.v === r)?.l ?? r;
 }

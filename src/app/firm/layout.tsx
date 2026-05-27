@@ -7,14 +7,12 @@ export const dynamic = "force-dynamic";
 const NAV: (NavItem & { adminOnly?: boolean; internToo?: boolean })[] = [
   { href: "/firm", label: "Inbox" },
   { href: "/firm/queue", label: "Triage queue", internToo: true },
-  { href: "/firm/intake", label: "Intake" },
   { href: "/firm/voices", label: "Voices" },
   { href: "/firm/stories", label: "Stories" },
   { href: "/firm/sources", label: "Sources" },
   { href: "/firm/briefs", label: "Briefs" },
   { href: "/firm/agenda", label: "Agenda" },
   { href: "/firm/decisions", label: "Decisions" },
-  { href: "/firm/team", label: "Team", adminOnly: true },
   { href: "/firm/threats", label: "Threats", adminOnly: true },
   { href: "/firm/audit", label: "Audit", adminOnly: true },
 ];

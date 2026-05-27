@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { QueueClient, type QueueRow } from "./queue-client";
+import { IntakeForm } from "@/app/firm/intake/intake-form";
 
 export const dynamic = "force-dynamic";
 
@@ -72,9 +73,22 @@ export default async function QueuePage() {
         <Stat label="Rejected · 24h" value={String(stats24.rejected)} />
       </div>
 
+      {/* Add manually — folded in from the old /firm/intake page */}
+      <Card className="mt-6 border-bronze/30">
+        <CardHeader>
+          <CardTitle>Add manually</CardTitle>
+          <CardDescription>
+            Paste a URL or attach a screenshot you encountered yourself. Goes straight to the inbox (skips intern review).
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <IntakeForm districts={districts ?? []} />
+        </CardContent>
+      </Card>
+
       <Card className="mt-6">
         <CardHeader>
-          <CardTitle>Pending</CardTitle>
+          <CardTitle>Pending field submissions</CardTitle>
           <CardDescription>{queue.length} submissions awaiting review. Oldest at the bottom.</CardDescription>
         </CardHeader>
         <CardContent>

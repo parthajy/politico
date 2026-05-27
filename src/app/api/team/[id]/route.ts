@@ -23,8 +23,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const { data: { user } } = await sb.auth.getUser();
   if (!user) return NextResponse.json({ ok: false, error: "unauthenticated" }, { status: 401 });
   const { data: me } = await sb.from("users").select("role").eq("id", user.id).single();
-  if (me?.role !== "firm_admin" && me?.role !== "firm_analyst") {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+  if (me?.role !== "superadmin") {
+    return NextResponse.json({ ok: false, error: "superadmin only" }, { status: 403 });
   }
 
   let body: z.infer<typeof Patch>;
@@ -62,8 +62,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const { data: { user } } = await sb.auth.getUser();
   if (!user) return NextResponse.json({ ok: false, error: "unauthenticated" }, { status: 401 });
   const { data: me } = await sb.from("users").select("role").eq("id", user.id).single();
-  if (me?.role !== "firm_admin" && me?.role !== "firm_analyst") {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+  if (me?.role !== "superadmin") {
+    return NextResponse.json({ ok: false, error: "superadmin only" }, { status: 403 });
   }
 
   const url = new URL(req.url);

@@ -175,6 +175,7 @@ async function seedVoices(districtIds: Map<string, number>) {
 }
 
 const DEMO_USERS = [
+  { email: "super.partha@samvidya.demo", full_name: "Partha (Superadmin)", role: "superadmin" as const },
   { email: "firm.admin@signaldesk.demo", full_name: "Firm Admin", role: "firm_admin" as const },
   { email: "firm.analyst@signaldesk.demo", full_name: "Firm Analyst", role: "firm_analyst" as const },
   { email: "party.cm@signaldesk.demo", full_name: "CM Office", role: "party_viewer" as const },

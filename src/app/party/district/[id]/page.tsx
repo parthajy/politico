@@ -40,9 +40,12 @@ export default async function DistrictPage({ params }: { params: { id: string } 
   return (
     <div className="container mx-auto max-w-6xl px-6 py-10">
       <div className="text-xs uppercase tracking-[0.18em] text-bronze">District</div>
-      <div className="mt-1 flex items-baseline gap-3">
-        <h1 className="font-serif text-4xl font-bold text-navy">{district.name}</h1>
-        {district.tier && <Badge variant={district.tier === 1 ? "bronze" : "outline"}>Tier {district.tier}</Badge>}
+      <div className="mt-1 flex items-baseline justify-between gap-3">
+        <div className="flex items-baseline gap-3">
+          <h1 className="font-serif text-4xl font-bold text-navy">{district.name}</h1>
+          {district.tier && <Badge variant={district.tier === 1 ? "bronze" : "outline"}>Tier {district.tier}</Badge>}
+        </div>
+        <Link href={`/party/entity/district/${id}`} className="text-xs text-bronze underline">Open memory vault →</Link>
       </div>
       <p className="mt-1 text-sm text-muted">
         HQ: {district.hq ?? "—"}

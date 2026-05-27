@@ -17,7 +17,7 @@ export default async function ConstituenciesOverview({ searchParams }: { searchP
 
   const { data: constituencies } = await sb
     .from("constituencies")
-    .select("id, number, name, district_id, current_mla_id, mlas!constituencies_mla_fk(name, party, is_minister, is_cm, is_deputy_cm), districts(name)")
+    .select("id, number, name, district_id, current_mla_id, mlas!constituencies_mla_fk(id, name, party, is_minister, is_cm, is_deputy_cm), districts(name)")
     .order("number");
 
   // Pull threat-radar summaries for any constituency that has one
@@ -31,7 +31,7 @@ export default async function ConstituenciesOverview({ searchParams }: { searchP
   }
 
   const enriched = await Promise.all((constituencies ?? []).map(async (c) => {
-    const m = (c.mlas as unknown) as { name: string; party: string | null; is_minister: boolean; is_cm: boolean; is_deputy_cm: boolean } | null;
+    const m = (c.mlas as unknown) as { id: number; name: string; party: string | null; is_minister: boolean; is_cm: boolean; is_deputy_cm: boolean } | null;
     const d = (c.districts as unknown) as { name: string } | null;
 
     const [{ count: total }, { count: neg }, { data: topSignal }, { data: lastSnap }] = await Promise.all([
@@ -153,11 +153,13 @@ export default async function ConstituenciesOverview({ searchParams }: { searchP
                 <tr key={r.id} className="border-b border-border last:border-0 hover:bg-sand/40">
                   <td className="px-3 py-2 text-xs text-muted">{r.number}</td>
                   <td className="px-3 py-2">
-                    <Link href={`/party/constituency/${r.id}`} className="font-medium text-navy hover:underline">{r.name}</Link>
+                    <Link href={`/party/entity/constituency/${r.id}`} className="font-medium text-navy hover:underline" title="Open memory vault for this seat">{r.name}</Link>
                     <div className="text-xs text-muted">{r.district ?? "—"}</div>
                   </td>
                   <td className="px-3 py-2 text-xs">
-                    {r.mla?.name ?? "—"}
+                    {r.mla?.id ? (
+                      <Link href={`/party/entity/person/${r.mla.id}`} className="hover:underline" title="Open memory vault for this MLA">{r.mla.name}</Link>
+                    ) : (r.mla?.name ?? "—")}
                     {r.mla?.party && <span className="text-muted"> · {r.mla.party}</span>}
                     {r.mla?.is_cm && <Badge variant="bronze" className="ml-1">CM</Badge>}
                     {r.mla?.is_deputy_cm && <Badge variant="bronze" className="ml-1">Dy CM</Badge>}
