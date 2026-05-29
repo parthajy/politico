@@ -1,27 +1,24 @@
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { auditLog } from "@/lib/audit";
 import { buildBriefContext, streamBrief } from "@/lib/ai/brief";
 import { MODEL_BRIEF } from "@/lib/ai/anthropic";
+import { requireFirmOrCron } from "@/lib/auth-cron";
 import { format } from "date-fns";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 90;
 
-// Streams the gpt-4o output as raw text. The client appends each chunk to the
+// Streams the Claude output as raw text. The client appends each chunk to the
 // editor in real time. After the stream finishes, the server upserts a draft
 // brief row and emits a final line `\n\n[[BRIEF_ID:<uuid>]]` so the client
 // knows what record to PATCH on save / publish.
+//
+// Dual-auth: firm_admin / firm_analyst session OR CRON_SECRET bearer (for the
+// daily morning-brief cron hit).
 
-export async function POST() {
-  const supabase = createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return new Response("unauthenticated", { status: 401 });
-
-  const { data: profile } = await supabase.from("users").select("role").eq("id", user.id).single();
-  if (profile?.role !== "firm_admin" && profile?.role !== "firm_analyst") {
-    return new Response("forbidden", { status: 403 });
-  }
+export async function POST(req: Request) {
+  const auth = await requireFirmOrCron(req, ["firm_admin", "firm_analyst"]);
+  if (!auth.ok) return new Response(auth.error, { status: auth.status });
 
   const today = new Date();
   const dateKey = format(today, "yyyy-MM-dd");
@@ -53,8 +50,8 @@ export async function POST() {
           controller.enqueue(encoder.encode(`\n\n[[BRIEF_ERROR:${error.message}]]`));
         } else {
           await auditLog({
-            user_id: user.id,
-            action: "brief_generate",
+            user_id: auth.user_id,
+            action: auth.via === "cron" ? "brief_generate_cron" : "brief_generate",
             entity_type: "briefs",
             entity_id: row.id,
             metadata: { model: MODEL_BRIEF, length: accumulated.length, date: dateKey },

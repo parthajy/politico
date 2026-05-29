@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { classifyAndPersist } from "@/lib/ingest";
 import { auditLog } from "@/lib/audit";
+import { requireFirmOrCron } from "@/lib/auth-cron";
 import type { EventSource } from "@/lib/sources/types";
 
 export const dynamic = "force-dynamic";
@@ -22,14 +22,11 @@ export const maxDuration = 120;
 
 const MAX_PER_RUN = 50;
 
-export async function POST() {
-  const sb = createClient();
-  const { data: { user } } = await sb.auth.getUser();
-  if (!user) return NextResponse.json({ ok: false, error: "unauthenticated" }, { status: 401 });
-  const { data: me } = await sb.from("users").select("role").eq("id", user.id).single();
-  if (!me || !["firm_admin", "firm_analyst", "superadmin"].includes(me.role)) {
-    return NextResponse.json({ ok: false, error: "firm admin/analyst/superadmin only" }, { status: 403 });
-  }
+export async function POST(req: Request) {
+  // Dual auth: firm/superadmin session OR CRON_SECRET (for the periodic
+  // self-heal cron that recovers events whose inline classifier call failed).
+  const auth = await requireFirmOrCron(req, ["firm_admin", "firm_analyst", "superadmin"]);
+  if (!auth.ok) return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
 
   const admin = createAdminClient();
 
@@ -95,8 +92,8 @@ export async function POST() {
   }
 
   await auditLog({
-    user_id: user.id,
-    action: "events_reclassify_orphans",
+    user_id: auth.user_id,
+    action: auth.via === "cron" ? "events_reclassify_orphans_cron" : "events_reclassify_orphans",
     entity_type: "events",
     entity_id: "batch",
     metadata: {

@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { auditLog } from "@/lib/audit";
 import { assessThreat, buildScopeContext } from "@/lib/ai/threat-radar";
 import { MODEL_BRIEF } from "@/lib/ai/anthropic";
+import { requireFirmOrCron } from "@/lib/auth-cron";
 import { subDays } from "date-fns";
 
 export const dynamic = "force-dynamic";
@@ -12,15 +12,12 @@ export const maxDuration = 90;
 // Refresh: CM + top 5 most-active ministers + top 5 most-active constituencies.
 // Runs in parallel with concurrency limit so we don't blow rate limits.
 
-export async function POST() {
-  const sb = createClient();
-  const { data: { user } } = await sb.auth.getUser();
-  if (!user) return NextResponse.json({ ok: false, error: "unauthenticated" }, { status: 401 });
-  const userId = user.id; // capture before closure to satisfy TS narrowing
-  const { data: profile } = await sb.from("users").select("role").eq("id", userId).single();
-  if (profile?.role !== "firm_admin") {
-    return NextResponse.json({ ok: false, error: "forbidden — admin only" }, { status: 403 });
-  }
+export async function POST(req: Request) {
+  // Dual auth: firm_admin session OR CRON_SECRET bearer (for the daily
+  // threat-refresh cron hit).
+  const auth = await requireFirmOrCron(req, ["firm_admin"]);
+  if (!auth.ok) return NextResponse.json({ ok: false, error: auth.error }, { status: auth.status });
+  const userId = auth.user_id;
 
   const admin = createAdminClient();
   const since = subDays(new Date(), 14).toISOString();

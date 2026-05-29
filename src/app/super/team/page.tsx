@@ -2,7 +2,6 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TeamClient } from "./team-client";
-import { DemoSeedButton } from "./demo-seed-button";
 
 export const dynamic = "force-dynamic";
 
@@ -79,15 +78,8 @@ export default async function SuperTeamPage() {
       <div className="text-xs uppercase tracking-[0.18em] text-bronze">People · superadmin</div>
       <h1 className="mt-2 font-serif text-3xl font-bold text-navy">Team management</h1>
       <p className="mt-1 text-sm text-muted">
-        Only superadmin can create, deactivate, or rotate access. Volunteers get a token; interns + analysts + admins sign in by email OTP.
+        Only superadmin can create, deactivate, or rotate access. Volunteers get a token; everyone else signs in by email OTP.
       </p>
-
-      <div className="mt-4 flex items-center justify-between rounded-md border border-dashed border-border bg-white/40 px-3 py-2">
-        <div className="text-[11px] text-muted">
-          <span className="font-medium text-navy">Demo accounts</span> — set passwords on the 6 fixture accounts so the login page buttons sign in directly. Idempotent; safe to re-run.
-        </div>
-        <DemoSeedButton />
-      </div>
 
       <TeamClient
         districts={districts ?? []}
