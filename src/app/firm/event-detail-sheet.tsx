@@ -35,6 +35,7 @@ type Detail = {
   snt_credibility: number | null;
   snt_vector: number | null;
   mla_name: string | null;
+  model_version: string | null;
 };
 
 type TriageStatus = "new" | "monitoring" | "escalated" | "closed";
@@ -57,7 +58,7 @@ export function EventDetailSheet({ row, onClose }: { row: Row; onClose: () => vo
       const [{ data: cls }, { data: tri }] = await Promise.all([
         sb
           .from("classifications")
-          .select("language, sentiment_justification, entities, snt_velocity, snt_credibility, snt_vector, mlas(name)")
+          .select("language, sentiment_justification, entities, snt_velocity, snt_credibility, snt_vector, model_version, mlas(name)")
           .eq("event_id", row.id)
           .maybeSingle(),
         sb.from("triage").select("notes, status").eq("event_id", row.id).maybeSingle(),
@@ -72,6 +73,7 @@ export function EventDetailSheet({ row, onClose }: { row: Row; onClose: () => vo
         snt_credibility: cls?.snt_credibility ?? null,
         snt_vector: cls?.snt_vector ?? null,
         mla_name: mlaJoin?.name ?? null,
+        model_version: cls?.model_version ?? null,
       });
       setNotes(tri?.notes ?? "");
       if (tri?.status) setStatus(tri.status);
@@ -93,6 +95,41 @@ export function EventDetailSheet({ row, onClose }: { row: Row; onClose: () => vo
       toast.error((e as Error).message);
     } finally {
       setTranslating(false);
+    }
+  }
+
+  const [reclassifying, setReclassifying] = useState(false);
+  async function reclassify() {
+    if (reclassifying) return;
+    setReclassifying(true);
+    try {
+      const r = await fetch(`/api/events/${row.id}/reclassify`, { method: "POST" });
+      const j = await r.json();
+      if (!r.ok || !j.ok) { toast.error(j.error ?? "Re-classify failed"); return; }
+      toast.success("Classified — refreshing");
+      router.refresh();
+      // Re-pull the detail so the badge + scores update without closing
+      const sb = createClient();
+      const { data: cls } = await sb
+        .from("classifications")
+        .select("language, sentiment_justification, entities, snt_velocity, snt_credibility, snt_vector, model_version, mlas(name)")
+        .eq("event_id", row.id)
+        .maybeSingle();
+      const mlaJoin = (cls?.mlas as unknown) as { name: string } | null;
+      if (cls) setDetail({
+        language: cls.language ?? null,
+        sentiment_justification: cls.sentiment_justification ?? null,
+        entities: (cls.entities as Detail["entities"]) ?? null,
+        snt_velocity: cls.snt_velocity ?? null,
+        snt_credibility: cls.snt_credibility ?? null,
+        snt_vector: cls.snt_vector ?? null,
+        mla_name: mlaJoin?.name ?? null,
+        model_version: cls.model_version ?? null,
+      });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setReclassifying(false);
     }
   }
 
@@ -165,6 +202,21 @@ export function EventDetailSheet({ row, onClose }: { row: Row; onClose: () => vo
         </div>
 
         <div className="flex-1 px-6 py-4">
+          {detail?.model_version === "manual_stub" && (
+            <div className="mb-3 flex items-start gap-3 rounded-lg border border-bronze/40 bg-bronze/5 p-3">
+              <div className="flex-1">
+                <div className="text-[10px] uppercase tracking-wider text-bronze">Awaiting AI classification</div>
+                <p className="mt-0.5 text-xs text-foreground/85">
+                  This item was intern-accepted but the AI classifier hasn&apos;t enriched it yet.
+                  Scores below are placeholders. Re-classify to get the real SNT, sentiment, entities, and topic tags.
+                </p>
+              </div>
+              <Button size="sm" variant="bronze" onClick={reclassify} disabled={reclassifying}>
+                {reclassifying ? "Classifying…" : "Re-classify"}
+              </Button>
+            </div>
+          )}
+
           <div className="grid grid-cols-3 gap-3 rounded-lg border border-border bg-sand/40 p-3 text-xs">
             <Stat label="SNT" value={row.snt_score?.toFixed(2) ?? "—"} />
             <Stat label="Velocity" value={detail?.snt_velocity?.toFixed(2) ?? "—"} />

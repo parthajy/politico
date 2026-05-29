@@ -87,14 +87,44 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     .single();
   if (insErr || !ev) return NextResponse.json({ ok: false, error: `event insert: ${insErr?.message}` }, { status: 500 });
 
+  // CRITICAL: write a stub classification row + triage row IMMEDIATELY so the
+  // event appears in the inbox even if the AI classifier fails downstream.
+  // The AI call below upserts (onConflict: event_id) so a successful run
+  // replaces the stub with real numbers; a failed run leaves the stub and the
+  // event is still visible (and the "Re-classify" button on the event detail
+  // sheet can retry it). Before this fix, classifier failures silently
+  // dropped intern-accepted news on the floor.
+  await admin.from("classifications").upsert({
+    event_id: ev.id,
+    language: "en",
+    entities: [],
+    sentiment: 0,
+    sentiment_justification: "Intern-accepted — AI classification pending. Click 'Re-classify' to enrich.",
+    district_id: body.district_id ?? null,
+    constituency_id: null,
+    mla_id: null,
+    topic_tags: [],
+    snt_velocity: 0.5,
+    snt_credibility: 0.7, // intern-vetted ≈ credible by default
+    snt_vector: 0.4,
+    snt_score: 0.5,        // mid-priority placeholder so it sorts mid-pack
+    model_version: "manual_stub",
+  }, { onConflict: "event_id", ignoreDuplicates: true });
+  await admin.from("triage").upsert(
+    { event_id: ev.id, status: "new" as const },
+    { onConflict: "event_id", ignoreDuplicates: true },
+  );
+
   let classified = 0;
+  let classifyError: string | null = null;
   try {
     classified = await classifyAndPersist([{
       id: ev.id, source: ev.source, source_id: ev.source_id,
       title: ev.title ?? "", body: ev.body ?? null, url: ev.url ?? null,
     }]);
   } catch (e) {
-    console.warn("queue classify error:", (e as Error).message);
+    classifyError = (e as Error).message;
+    console.warn("queue classify error:", classifyError);
   }
 
   await admin.from("field_submissions").update({
@@ -113,5 +143,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     metadata: { event_id: ev.id, classified, edited_title: body.title, edited_body_len: body.body.length },
   });
 
-  return NextResponse.json({ ok: true, event_id: ev.id });
+  return NextResponse.json({
+    ok: true,
+    event_id: ev.id,
+    classified: classified > 0,
+    classify_error: classifyError,
+    note: classified > 0
+      ? "Accepted and classified by AI."
+      : "Accepted with stub classification — event is visible in the inbox; use 'Re-classify' on the event detail to enrich.",
+  });
 }

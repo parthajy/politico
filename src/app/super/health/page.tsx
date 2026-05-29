@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format, formatDistanceToNowStrict, subDays, subHours } from "date-fns";
+import { ReclassifyOrphansButton } from "./reclassify-button";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +48,14 @@ export default async function HealthPage() {
   const { count: eventsTotal } = await sb.from("events").select("id", { count: "exact", head: true });
   const { count: classifsTotal } = await sb.from("classifications").select("event_id", { count: "exact", head: true });
   const unclassified = (eventsTotal ?? 0) - (classifsTotal ?? 0);
+
+  // Stub-classified events (intern-accepted but AI never enriched)
+  const { count: stubsCount } = await sb
+    .from("classifications")
+    .select("event_id", { count: "exact", head: true })
+    .eq("model_version", "manual_stub");
+
+  const recoverable = Math.max(0, unclassified) + (stubsCount ?? 0);
 
   // Triage queue depth
   const { count: queueDepth } = await sb.from("field_submissions").select("id", { count: "exact", head: true }).in("status", ["pending", "needs_human"]);
@@ -109,14 +118,25 @@ export default async function HealthPage() {
             <CardDescription>Events vs classifications. Unclassified backlog should trend to zero.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-3 gap-3 text-sm">
+            <div className="grid grid-cols-4 gap-3 text-sm">
               <Stat label="Events total" value={(eventsTotal ?? 0).toLocaleString()} />
               <Stat label="Classified" value={(classifsTotal ?? 0).toLocaleString()} />
-              <Stat label="Unclassified" value={unclassified.toLocaleString()} warn={unclassified > 50} />
+              <Stat label="Unclassified" value={unclassified.toLocaleString()} warn={unclassified > 0} />
+              <Stat label="Stubs (await AI)" value={(stubsCount ?? 0).toLocaleString()} warn={(stubsCount ?? 0) > 0} />
             </div>
-            {unclassified > 50 && (
-              <div className="mt-3 rounded border border-bronze/40 bg-bronze/5 p-2 text-xs text-bronze-dark">
-                Significant backlog — run <code className="font-mono">npx tsx scripts/classify-pending.ts</code> to drain.
+            {recoverable > 0 && (
+              <div className="mt-3 flex items-center justify-between gap-3 rounded border border-bronze/40 bg-bronze/5 p-3">
+                <div className="text-xs text-bronze-dark">
+                  <span className="font-medium">{recoverable} event{recoverable === 1 ? " is" : "s are"} missing AI classification.</span>{" "}
+                  Intern-accepted news is visible (stub scores) but won&apos;t rank correctly until classified.
+                </div>
+                <ReclassifyOrphansButton unclassified={recoverable} />
+              </div>
+            )}
+            {recoverable === 0 && (
+              <div className="mt-3 text-xs text-muted">
+                Every event has a full AI classification.
+                <span className="ml-3"><ReclassifyOrphansButton unclassified={0} /></span>
               </div>
             )}
           </CardContent>

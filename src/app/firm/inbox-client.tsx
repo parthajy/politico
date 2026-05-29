@@ -31,7 +31,9 @@ type InboxRow = {
 
 type SortKey = "snt" | "age" | "sentiment" | "source";
 
-const SOURCES = ["reddit", "youtube", "google_news", "rss", "gdelt"];
+// "manual" covers everything intern-accepted from the volunteer queue or
+// pasted in by an analyst — they must be filterable so accepted news is findable.
+const SOURCES = ["reddit", "youtube", "google_news", "rss", "gdelt", "manual"];
 const STATUSES = ["new", "monitoring", "escalated", "closed"];
 
 export function InboxClient({
