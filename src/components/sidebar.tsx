@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { GLOSSARY } from "@/lib/glossary";
 import { SignOutButton } from "@/components/sign-out-button";
 import { CommandPalette } from "@/components/command-palette";
@@ -16,6 +16,8 @@ const SCOPE_LABEL: Record<"firm" | "party" | "super", string> = {
   super: "Superadmin",
 };
 
+const COLLAPSE_KEY = "samvidya:sidebar:collapsed";
+
 export function Sidebar({
   scope,
   nav,
@@ -27,30 +29,48 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const [glossaryOpen, setGlossaryOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+
+  // Load persisted state once on mount
+  useEffect(() => {
+    try {
+      setCollapsed(localStorage.getItem(COLLAPSE_KEY) === "1");
+    } catch { /* localStorage may be blocked */ }
+  }, []);
+
+  function toggleCollapse() {
+    setCollapsed((v) => {
+      const next = !v;
+      try { localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0"); } catch { /* noop */ }
+      return next;
+    });
+  }
 
   function isActive(href: string) {
     if (href === `/${scope}`) return pathname === href;
     return pathname === href || pathname.startsWith(href + "/");
   }
 
-  // First-letter avatar fallback (no profile photo wired in yet)
   const initials = userName.split(/\s+|@/).slice(0, 2).map((s) => s[0]?.toUpperCase()).join("");
 
   return (
     <>
-      <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col border-r border-border bg-white">
-        {/* Brand block + brain-map quick launcher */}
-        <div className="px-4 pt-5 pb-4">
+      <aside
+        className={`sticky top-0 flex h-screen shrink-0 flex-col border-r border-border bg-white transition-[width] duration-200 ease-out ${
+          collapsed ? "w-14" : "w-60"
+        }`}
+      >
+        {/* Brand block + collapse toggle + brain-map shortcut */}
+        <div className={`pt-5 pb-4 ${collapsed ? "px-2" : "px-4"}`}>
           <div className="flex items-center justify-between gap-2">
-            <Link href={`/${scope}`} className="block">
-              <Image src="/logo.png" alt="Samvidya" width={1114} height={242} className="h-6 w-auto" priority />
+            <Link href={`/${scope}`} className="block" title="Samvidya">
+              {collapsed ? (
+                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-navy text-[11px] font-bold text-white">S</div>
+              ) : (
+                <Image src="/logo.png" alt="Samvidya" width={1114} height={242} className="h-6 w-auto" priority />
+              )}
             </Link>
-            {/*
-              Brain-map shortcut — available from every page. Hidden for
-              superadmin (no /super/brain page yet); on /firm and /party it
-              opens the role-appropriate brain map.
-            */}
-            {scope !== "super" && (
+            {!collapsed && scope !== "super" && (
               <Link
                 href={`/${scope}/brain`}
                 title="Brain map — entity graph"
@@ -63,20 +83,39 @@ export function Sidebar({
               </Link>
             )}
           </div>
-          <div className="mt-2 text-[10px] font-medium uppercase tracking-[0.18em] text-bronze">
-            {SCOPE_LABEL[scope]}
-          </div>
+          {!collapsed && (
+            <div className="mt-2 text-[10px] font-medium uppercase tracking-[0.18em] text-bronze">
+              {SCOPE_LABEL[scope]}
+            </div>
+          )}
         </div>
 
         {/* Search trigger — opens the ⌘K palette */}
-        <div className="px-3 pb-2">
-          <CommandPalette />
-        </div>
+        {!collapsed && (
+          <div className="px-3 pb-2">
+            <CommandPalette />
+          </div>
+        )}
 
         {/* Nav */}
-        <nav className="mt-1 flex-1 overflow-y-auto px-2.5">
+        <nav className={`mt-1 flex-1 overflow-y-auto ${collapsed ? "px-2" : "px-2.5"}`}>
           {nav.map((n) => {
             const active = isActive(n.href);
+            // Collapsed mode: just a colored dot pill as the link target
+            if (collapsed) {
+              return (
+                <Link
+                  key={n.href}
+                  href={n.href}
+                  title={n.label}
+                  className={`mb-0.5 flex h-9 items-center justify-center rounded-lg transition ${
+                    active ? "bg-bronze-soft text-bronze-dark" : "text-foreground/60 hover:bg-surface-2 hover:text-foreground"
+                  }`}
+                >
+                  <span className="text-[11px] font-semibold uppercase">{n.label[0]}</span>
+                </Link>
+              );
+            }
             return (
               <Link
                 key={n.href}
@@ -98,25 +137,50 @@ export function Sidebar({
           })}
         </nav>
 
-        {/* Footer — glossary + user */}
-        <div className="border-t border-border px-3 py-3">
+        {/* Footer — collapse toggle + glossary + user */}
+        <div className={`border-t border-border py-3 ${collapsed ? "px-2" : "px-3"}`}>
           <button
-            onClick={() => setGlossaryOpen(true)}
-            className="mb-2 flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-[11px] text-muted hover:bg-surface-2 hover:text-foreground"
+            onClick={toggleCollapse}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className={`mb-2 flex w-full items-center rounded-md px-3 py-1.5 text-[11px] text-muted hover:bg-surface-2 hover:text-foreground ${
+              collapsed ? "justify-center px-0" : "gap-2"
+            }`}
           >
-            <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-border text-[9px] text-muted">?</span>
-            Glossary
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              {collapsed ? <path d="M5 12h14M13 6l6 6-6 6" /> : <path d="M19 12H5M11 6l-6 6 6 6" />}
+            </svg>
+            {!collapsed && <span>Collapse</span>}
           </button>
 
-          <div className="flex items-center gap-2.5 px-2 pt-1">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-bronze-soft text-[11px] font-semibold text-bronze-dark">
-              {initials || "U"}
+          {!collapsed && (
+            <>
+              <button
+                onClick={() => setGlossaryOpen(true)}
+                className="mb-2 flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-[11px] text-muted hover:bg-surface-2 hover:text-foreground"
+              >
+                <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-border text-[9px] text-muted">?</span>
+                Glossary
+              </button>
+
+              <div className="flex items-center gap-2.5 px-2 pt-1">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-bronze-soft text-[11px] font-semibold text-bronze-dark">
+                  {initials || "U"}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[12px] font-medium text-navy">{userName}</div>
+                  <SignOutButton />
+                </div>
+              </div>
+            </>
+          )}
+
+          {collapsed && (
+            <div className="flex flex-col items-center gap-2 pt-1">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-bronze-soft text-[11px] font-semibold text-bronze-dark" title={userName}>
+                {initials || "U"}
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[12px] font-medium text-navy">{userName}</div>
-              <SignOutButton />
-            </div>
-          </div>
+          )}
         </div>
       </aside>
 

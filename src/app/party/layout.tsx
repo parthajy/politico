@@ -14,6 +14,7 @@ const NAV_CMO: NavItem[] = [
   { href: "/party/cabinet", label: "Cabinet" },
   { href: "/party/threats", label: "Threats" },
   { href: "/party/brain", label: "Brain map" },
+  { href: "/party/watch", label: "My watchlist" },
   { href: "/party/decisions", label: "Decisions" },
   { href: "/party/brief", label: "Brief" },
   { href: "/party/alerts", label: "Alerts" },

@@ -5,6 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { sntBadge, sentimentColor, shortSource } from "@/lib/format";
 import { format, formatDistanceToNowStrict } from "date-fns";
+import { WatchButton, type WatchKind } from "@/components/watch-button";
+
+const SCOPE_TO_KIND: Record<EntityScope, WatchKind | null> = {
+  person: "minister",
+  constituency: "constituency",
+  district: "district",
+  topic: "topic",
+};
 
 export const dynamic = "force-dynamic";
 
@@ -19,16 +27,25 @@ export default async function EntityPage({ params }: { params: { scope: string; 
 
   const sentToday = data.net_sentiment_today;
 
+  const watchKind = SCOPE_TO_KIND[scope];
+
   return (
     <div className="container mx-auto max-w-5xl px-6 py-10">
-      <div className="text-xs uppercase tracking-[0.18em] text-bronze">{scope}</div>
-      <div className="mt-2 flex items-baseline gap-3">
-        <h1 className="font-serif text-4xl font-bold text-navy">{data.header.display_name}</h1>
-        {data.header.badges.map((b) => (
-          <Badge key={b.label} variant={b.tone}>{b.label}</Badge>
-        ))}
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-xs uppercase tracking-[0.18em] text-bronze">{scope}</div>
+          <div className="mt-2 flex items-baseline gap-3">
+            <h1 className="font-serif text-4xl font-bold text-navy">{data.header.display_name}</h1>
+            {data.header.badges.map((b) => (
+              <Badge key={b.label} variant={b.tone}>{b.label}</Badge>
+            ))}
+          </div>
+          {data.header.subtitle && <p className="mt-1 text-sm text-muted">{data.header.subtitle}</p>}
+        </div>
+        {watchKind && (
+          <WatchButton kind={watchKind} refId={params.id} label={data.header.display_name} />
+        )}
       </div>
-      {data.header.subtitle && <p className="mt-1 text-sm text-muted">{data.header.subtitle}</p>}
 
       {/* Headline numbers */}
       <div className="mt-6 grid gap-3 md:grid-cols-4">
