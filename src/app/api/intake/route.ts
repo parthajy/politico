@@ -21,6 +21,12 @@ const Body = z.object({
   district_id: z.number().int().optional().nullable(),
   volunteer_name: z.string().max(120).optional(),
   image_data_url: z.string().optional(), // data:image/...;base64,...
+  // New: additional screenshots (comment threads, audience reactions, reposts).
+  // Each is a data: URL. Capped at 4 to keep payloads reasonable.
+  extra_images: z.array(z.string()).max(4).optional(),
+  // New: free-form note about comments / reactions the volunteer observed.
+  // Goes into the intelligence-extraction pipeline alongside the main body.
+  comments_text: z.string().max(4000).optional(),
 }).refine((b) => !!b.url || !!b.image_data_url, {
   message: "Provide a URL or an image (or both)",
 });
@@ -91,7 +97,13 @@ export async function POST(req: Request) {
   const admin = createAdminClient();
 
   // Volunteer flow: write to field_submissions queue, no event yet.
+  // We DON'T OCR the extra images here — too slow on submit. The intern can
+  // view them in /firm/queue, OCR-on-demand or accept them as-is to flow
+  // into the voice extractor downstream.
   if (routeToQueue) {
+    // For now, store extra images as data: URLs directly in the column.
+    // For high-volume production we'd upload to storage and store URLs.
+    const extraUrls = body.extra_images ?? [];
     const { data: sub, error: qErr } = await admin.from("field_submissions").insert({
       submitter_id: user.id,
       url,
@@ -104,6 +116,8 @@ export async function POST(req: Request) {
       ai_title: title,
       ai_body: bodyText,
       ai_classification: null,  // filled in if/when AI processes
+      extra_screenshot_urls: extraUrls,
+      comments_text: body.comments_text ?? null,
       status: (extracted?.needs_screenshot && !ocr) || extracted?.extract_quality === "empty" ? "needs_human" : "pending",
     }).select("id").single();
     if (qErr || !sub) {

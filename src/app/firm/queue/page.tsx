@@ -14,7 +14,7 @@ export default async function QueuePage() {
     .select(`
       id, submitter_id, url, screenshot_url, note, suggested_district_id, platform,
       extract_quality, ai_title, ai_body, ai_classification, status, created_at,
-      ocr_caption,
+      ocr_caption, extra_screenshot_urls, comments_text,
       users:submitter_id ( id, full_name, email, role, photo_url, districts(name) )
     `)
     .in("status", ["pending", "ai_processed", "needs_human"])
@@ -36,6 +36,8 @@ export default async function QueuePage() {
       status: r.status,
       created_at: r.created_at,
       ocr_caption: r.ocr_caption,
+      extra_screenshot_urls: (r as { extra_screenshot_urls?: string[] | null }).extra_screenshot_urls ?? null,
+      comments_text: (r as { comments_text?: string | null }).comments_text ?? null,
       submitter: u ? {
         name: u.full_name ?? u.email,
         role: u.role,

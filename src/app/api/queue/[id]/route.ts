@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { classifyAndPersist } from "@/lib/ingest";
 import { auditLog } from "@/lib/audit";
+import { extractFromEvent, persistExtraction } from "@/lib/ai/voice-extract";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 45;
@@ -15,6 +16,10 @@ const Accept = z.object({
   url: z.string().url().optional().nullable(),
   district_id: z.number().int().nullable().optional(),
   intern_notes: z.string().optional().nullable(),
+  // Optional intelligence payload — passed through from the volunteer
+  // submission OR added by the intern at triage time.
+  comments_text: z.string().optional().nullable(),
+  extra_screenshot_urls: z.array(z.string().url()).optional(),
 });
 const Reject = z.object({
   action: z.literal("reject"),
@@ -74,6 +79,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     title: body.title,
     body: body.body,
     published_at: new Date().toISOString(),
+    // Carry through volunteer-supplied + intern-added intelligence so the
+    // voice extractor can see it. The dedicated columns are populated
+    // alongside raw_payload for easier querying.
+    comments_text: body.comments_text ?? null,
+    extra_screenshot_urls: body.extra_screenshot_urls ?? [],
     raw_payload: {
       via: "queue",
       submission_id: params.id,
@@ -127,6 +137,35 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     console.warn("queue classify error:", classifyError);
   }
 
+  // Voice + engagement extraction (second AI pass — independent of classifier
+  // so failure here doesn't poison the event). Best-effort; logs but doesn't
+  // surface error to the intern.
+  let voicesCreated = 0;
+  let voicesLinked = 0;
+  try {
+    const ext = await extractFromEvent({
+      id: ev.id,
+      title: ev.title,
+      body: ev.body,
+      source: ev.source,
+      url: ev.url,
+      comments_text: body.comments_text ?? null,
+      raw_payload: null, // freshly inserted; nothing extra to read
+    });
+    const persisted = await persistExtraction(ev.id, ext);
+    voicesCreated = persisted.created;
+    voicesLinked = persisted.linked;
+  } catch (e) {
+    console.warn("queue voice-extract error:", (e as Error).message);
+    await auditLog({
+      user_id: user.id,
+      action: "voice_extract_error",
+      entity_type: "events",
+      entity_id: ev.id,
+      metadata: { error: (e as Error).message },
+    });
+  }
+
   await admin.from("field_submissions").update({
     status: "accepted",
     reviewer_id: user.id,
@@ -140,7 +179,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     action: "queue_accept",
     entity_type: "field_submissions",
     entity_id: params.id,
-    metadata: { event_id: ev.id, classified, edited_title: body.title, edited_body_len: body.body.length },
+    metadata: {
+      event_id: ev.id, classified,
+      voices_created: voicesCreated, voices_linked: voicesLinked,
+      edited_title: body.title, edited_body_len: body.body.length,
+    },
   });
 
   return NextResponse.json({
@@ -148,8 +191,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     event_id: ev.id,
     classified: classified > 0,
     classify_error: classifyError,
+    voices_created: voicesCreated,
+    voices_linked: voicesLinked,
     note: classified > 0
-      ? "Accepted and classified by AI."
-      : "Accepted with stub classification — event is visible in the inbox; use 'Re-classify' on the event detail to enrich.",
+      ? `Accepted, classified, ${voicesCreated} new voice${voicesCreated === 1 ? "" : "s"} extracted.`
+      : "Accepted with stub classification — use 'Re-classify' on the event detail to enrich.",
   });
 }

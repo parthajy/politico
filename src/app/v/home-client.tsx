@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Input, Label } from "@/components/ui/input";
+import { Input, Label, Textarea } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
@@ -25,10 +25,16 @@ export function VolunteerHome({
 }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
+  const extraFileRef = useRef<HTMLInputElement>(null);
   const [url, setUrl] = useState("");
   const [note, setNote] = useState("");
   const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
   const [imageName, setImageName] = useState<string | null>(null);
+  // Extra screenshots — comment threads, audience reactions, etc.
+  const [extraImages, setExtraImages] = useState<{ name: string; dataUrl: string }[]>([]);
+  // Comments / reactions context — what the volunteer observed beyond the
+  // post itself. Goes into the intelligence-extraction pipeline.
+  const [commentsText, setCommentsText] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -39,6 +45,26 @@ export function VolunteerHome({
     const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
     setImageDataUrl(`data:${f.type};base64,${b64}`);
     setImageName(f.name);
+  }
+
+  async function handleExtraFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    const remainingSlots = 4 - extraImages.length;
+    if (files.length > remainingSlots) {
+      toast.error(`Max 4 extra screenshots total. Skipping ${files.length - remainingSlots}.`);
+    }
+    for (const f of files.slice(0, remainingSlots)) {
+      if (f.size > 8 * 1024 * 1024) { toast.error(`${f.name} > 8 MB — skipped`); continue; }
+      const buf = await f.arrayBuffer();
+      const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+      setExtraImages((arr) => [...arr, { name: f.name, dataUrl: `data:${f.type};base64,${b64}` }]);
+    }
+    if (extraFileRef.current) extraFileRef.current.value = "";
+  }
+
+  function removeExtra(idx: number) {
+    setExtraImages((arr) => arr.filter((_, i) => i !== idx));
   }
 
   async function submit(e: React.FormEvent) {
@@ -54,6 +80,8 @@ export function VolunteerHome({
           url: url.trim() || undefined,
           note: note.trim() || undefined,
           image_data_url: imageDataUrl ?? undefined,
+          extra_images: extraImages.map((x) => x.dataUrl),
+          comments_text: commentsText.trim() || undefined,
         }),
       });
       const j = await r.json();
@@ -64,7 +92,9 @@ export function VolunteerHome({
       }
       toast.success(j.message ?? "Submitted — desk will review");
       setUrl(""); setNote(""); setImageDataUrl(null); setImageName(null);
+      setExtraImages([]); setCommentsText("");
       if (fileRef.current) fileRef.current.value = "";
+      if (extraFileRef.current) extraFileRef.current.value = "";
       router.refresh();
     } catch (e) {
       toast.dismiss(t);
@@ -113,17 +143,57 @@ export function VolunteerHome({
               <Input id="note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g., local MLA quote on bandh" />
             </div>
             <div>
-              <Label>Screenshot (for FB / IG / X — they hide content otherwise)</Label>
+              <Label>Screenshot — the main post</Label>
               <input
                 ref={fileRef}
                 type="file"
                 accept="image/*"
                 capture="environment"
                 onChange={handleFile}
-                className="mt-1 block w-full rounded-md border border-border bg-white px-2 py-1.5 text-sm file:mr-3 file:rounded file:border-0 file:bg-sand file:px-2 file:py-1 file:text-xs"
+                className="mt-1 block w-full rounded-md border border-border bg-white px-2 py-1.5 text-sm file:mr-3 file:rounded file:border-0 file:bg-sand-deep file:px-2 file:py-1 file:text-xs"
               />
               {imageName && <div className="mt-1 text-[11px] text-muted">{imageName} attached · the desk OCRs it</div>}
             </div>
+
+            {/* Extra screenshots — comment threads, reaction strips, reposts.
+                These hugely boost intelligence value because the AI extracts
+                voices and counter-voices from each. */}
+            <div className="rounded-lg border border-dashed border-border bg-surface-2/40 p-2.5">
+              <Label className="text-[11px]">More screenshots — comment thread, reactions, reposts (up to 4)</Label>
+              <input
+                ref={extraFileRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleExtraFiles}
+                disabled={extraImages.length >= 4}
+                className="mt-1 block w-full rounded-md border border-border bg-white px-2 py-1.5 text-xs file:mr-2 file:rounded file:border-0 file:bg-sand-deep file:px-2 file:py-0.5 file:text-[10px] disabled:opacity-50"
+              />
+              {extraImages.length > 0 && (
+                <ul className="mt-2 space-y-1">
+                  {extraImages.map((x, i) => (
+                    <li key={i} className="flex items-center justify-between rounded bg-white px-2 py-1 text-[11px]">
+                      <span className="truncate text-muted">{x.name}</span>
+                      <button type="button" onClick={() => removeExtra(i)} className="ml-2 text-severity-1 hover:underline">remove</button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="comments_text" className="text-[12px]">Comments / reactions you saw (optional, super useful)</Label>
+              <Textarea
+                id="comments_text"
+                value={commentsText}
+                onChange={(e) => setCommentsText(e.target.value)}
+                rows={3}
+                placeholder='e.g., "Many supportive comments from Itanagar accounts. 3 hostile replies from a single Tezpur University handle. Top comment: \"This won&apos;t change anything\"."'
+                className="mt-1 text-xs"
+              />
+              <p className="mt-0.5 text-[10px] text-muted">The desk AI scans this to extract who&apos;s reacting + how. Even a 1-line note helps.</p>
+            </div>
+
             <Button type="submit" variant="bronze" disabled={busy} className="w-full">
               {busy ? "Sending…" : "Submit to desk"}
             </Button>

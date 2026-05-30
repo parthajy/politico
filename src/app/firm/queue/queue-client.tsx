@@ -21,6 +21,8 @@ export type QueueRow = {
   status: string;
   created_at: string;
   ocr_caption: string | null;
+  extra_screenshot_urls: string[] | null;  // additional screenshots — comment threads, reactions
+  comments_text: string | null;            // volunteer's free-form note on observed reactions
   submitter: { name: string; role: string; photo_url: string | null; district: string | null } | null;
 };
 
@@ -70,6 +72,10 @@ function QueueCard({ r, districts, onDone }: { r: QueueRow; districts: { id: num
           url: r.url,
           district_id: districtId ? parseInt(districtId, 10) : null,
           intern_notes: internNotes || null,
+          // Pass through the volunteer's extra intelligence so the voice
+          // extractor sees it.
+          comments_text: r.comments_text || null,
+          extra_screenshot_urls: r.extra_screenshot_urls ?? [],
         }),
       });
       const j = await res.json();
@@ -160,6 +166,27 @@ function QueueCard({ r, districts, onDone }: { r: QueueRow; districts: { id: num
           <div>
             <span className="text-muted">Screenshot reads: </span>
             <span className="text-foreground/85">{r.ocr_caption}</span>
+          </div>
+        )}
+        {r.comments_text && (
+          <div className="rounded-lg border-l-2 border-bronze bg-bronze-soft/40 p-2.5">
+            <span className="text-[10px] font-medium uppercase tracking-wider text-bronze-dark">Comments / reactions volunteer observed</span>
+            <p className="mt-1 whitespace-pre-wrap italic text-foreground/85">{r.comments_text}</p>
+          </div>
+        )}
+        {(r.extra_screenshot_urls?.length ?? 0) > 0 && (
+          <div>
+            <span className="text-[10px] font-medium uppercase tracking-wider text-muted">
+              {r.extra_screenshot_urls!.length} extra screenshot{r.extra_screenshot_urls!.length === 1 ? "" : "s"}
+            </span>
+            <div className="mt-1 flex flex-wrap gap-2">
+              {r.extra_screenshot_urls!.map((u, i) => (
+                <a key={i} href={u} target="_blank" rel="noreferrer" className="block">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={u} alt={`extra ${i + 1}`} className="h-20 w-20 rounded border border-border object-cover hover:border-bronze" />
+                </a>
+              ))}
+            </div>
           </div>
         )}
       </div>

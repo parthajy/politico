@@ -98,6 +98,26 @@ export function EventDetailSheet({ row, onClose }: { row: Row; onClose: () => vo
     }
   }
 
+  const [extractingVoices, setExtractingVoices] = useState(false);
+  async function extractVoices() {
+    if (extractingVoices) return;
+    setExtractingVoices(true);
+    try {
+      const r = await fetch(`/api/voices/extract/${row.id}`, { method: "POST" });
+      const j = await r.json();
+      if (!r.ok || !j.ok) { toast.error(j.error ?? "Voice extraction failed"); return; }
+      const msg = j.voices_returned === 0
+        ? "No new voices found in this event."
+        : `Found ${j.voices_returned} voice${j.voices_returned === 1 ? "" : "s"} — ${j.created} new, ${j.linked} linked${j.engagement_written ? " · engagement metrics extracted" : ""}`;
+      toast.success(msg);
+      router.refresh();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setExtractingVoices(false);
+    }
+  }
+
   const [reclassifying, setReclassifying] = useState(false);
   async function reclassify() {
     if (reclassifying) return;
@@ -216,6 +236,16 @@ export function EventDetailSheet({ row, onClose }: { row: Row; onClose: () => vo
               </Button>
             </div>
           )}
+
+          {/* Intelligence-extraction utilities — sit above the SNT panel so the
+              analyst sees both actions together (re-classify for scoring,
+              extract voices for the people network). */}
+          <div className="mb-3 flex items-center justify-between gap-2 rounded-lg border border-border bg-surface-2/40 px-3 py-2 text-xs">
+            <span className="text-muted">Run AI again on this event to pull out people, comments, engagement:</span>
+            <Button size="sm" variant="outline" onClick={extractVoices} disabled={extractingVoices}>
+              {extractingVoices ? "Extracting…" : "🎤 Extract voices"}
+            </Button>
+          </div>
 
           <div className="grid grid-cols-3 gap-3 rounded-lg border border-border bg-sand/40 p-3 text-xs">
             <Stat label="SNT" value={row.snt_score?.toFixed(2) ?? "—"} />
