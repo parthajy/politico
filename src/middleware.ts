@@ -1,6 +1,20 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
+// Behind Caddy on the DO droplet, Next.js sometimes resolves `req.nextUrl`'s
+// host to `localhost:3000` (the bound HOSTNAME leaks through Next's URL
+// parsing). Build redirects from the actual `Host` header instead — Caddy
+// preserves it, so this gives us samvidya.com every time. Fall back to the
+// SITE_URL env var only if the header is missing or itself localhost.
+function safeRedirect(req: NextRequest, pathname: string): NextResponse {
+  const host = req.headers.get("host");
+  const proto = req.headers.get("x-forwarded-proto") || "https";
+  const base = host && !host.startsWith("localhost") && !host.startsWith("127.")
+    ? `${proto}://${host}`
+    : (process.env.SITE_URL || "https://samvidya.com");
+  return NextResponse.redirect(`${base}${pathname}`);
+}
+
 export async function middleware(req: NextRequest) {
   const reqHeaders = new Headers(req.headers);
   reqHeaders.set("x-pathname", req.nextUrl.pathname);
@@ -33,14 +47,10 @@ export async function middleware(req: NextRequest) {
   const isVLogin = path === "/v/login";
 
   if (!user && (isFirm || isParty || isSuper)) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
+    return safeRedirect(req, "/login");
   }
   if (!user && isVRoot && !isVLogin) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/v/login";
-    return NextResponse.redirect(url);
+    return safeRedirect(req, "/v/login");
   }
 
   if (user && (isFirm || isParty || isSuper || (isVRoot && !isVLogin))) {
@@ -50,37 +60,25 @@ export async function middleware(req: NextRequest) {
 
     // Volunteers stick to /v/*; if they hit /firm or /party or /super, bounce to /v.
     if ((isFirm || isParty || isSuper) && role === "volunteer") {
-      const url = req.nextUrl.clone();
-      url.pathname = "/v";
-      return NextResponse.redirect(url);
+      return safeRedirect(req, "/v");
     }
     // /v/* requires volunteer role
     if (isVRoot && !isVLogin && role !== "volunteer") {
-      const url = req.nextUrl.clone();
-      url.pathname = role === "superadmin" ? "/super" : role === "party_viewer" ? "/party" : "/firm";
-      return NextResponse.redirect(url);
+      return safeRedirect(req, role === "superadmin" ? "/super" : role === "party_viewer" ? "/party" : "/firm");
     }
 
     // Superadmin always lands on /super
     if ((isFirm || isParty) && role === "superadmin") {
-      const url = req.nextUrl.clone();
-      url.pathname = "/super";
-      return NextResponse.redirect(url);
+      return safeRedirect(req, "/super");
     }
     if (isSuper && role !== "superadmin") {
-      const url = req.nextUrl.clone();
-      url.pathname = role === "party_viewer" ? "/party" : "/firm";
-      return NextResponse.redirect(url);
+      return safeRedirect(req, role === "party_viewer" ? "/party" : "/firm");
     }
     if (isFirm && role !== "firm_admin" && role !== "firm_analyst" && role !== "firm_intern") {
-      const url = req.nextUrl.clone();
-      url.pathname = "/party";
-      return NextResponse.redirect(url);
+      return safeRedirect(req, "/party");
     }
     if (isParty && role !== "party_viewer") {
-      const url = req.nextUrl.clone();
-      url.pathname = "/firm";
-      return NextResponse.redirect(url);
+      return safeRedirect(req, "/firm");
     }
   }
 
@@ -89,12 +87,11 @@ export async function middleware(req: NextRequest) {
     const { data: profile } = await supabase
       .from("users").select("role").eq("id", user.id).single();
     const role = profile?.role as string | undefined;
-    const url = req.nextUrl.clone();
-    url.pathname = role === "superadmin" ? "/super"
-      : role === "party_viewer" ? "/party"
-      : role === "volunteer" ? "/v"
-      : "/firm";
-    return NextResponse.redirect(url);
+    return safeRedirect(req,
+      role === "superadmin" ? "/super"
+        : role === "party_viewer" ? "/party"
+        : role === "volunteer" ? "/v"
+        : "/firm");
   }
 
   return res;
