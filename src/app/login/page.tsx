@@ -96,7 +96,7 @@ export default function LoginPage() {
 
         <Card className="w-full">
           <CardHeader>
-            <CardTitle>{step === "email" ? "Enter your email" : "Enter the 6-digit code"}</CardTitle>
+            <CardTitle>{step === "email" ? "Enter your email" : "Enter the code from your email"}</CardTitle>
             <CardDescription>
               {step === "email"
                 ? "We'll email you a one-time code valid for 5 minutes."
@@ -125,7 +125,13 @@ export default function LoginPage() {
             ) : (
               <form onSubmit={verifyCode} className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1">
-                  <Label htmlFor="code">6-digit code</Label>
+                  <Label htmlFor="code">One-time code</Label>
+                  {/*
+                    Supabase's email-OTP length is project-configurable (6 or 8
+                    digits). We accept anything from 6 up to 10 numeric chars
+                    and let verifyOtp tell us if it's wrong — avoids having to
+                    keep this length in sync with the Supabase setting.
+                  */}
                   <Input
                     ref={codeInputRef}
                     id="code"
@@ -133,15 +139,15 @@ export default function LoginPage() {
                     inputMode="numeric"
                     pattern="[0-9]*"
                     autoComplete="one-time-code"
-                    maxLength={6}
+                    maxLength={10}
                     value={code}
-                    onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                    placeholder="123456"
-                    className="text-center text-2xl tracking-[0.4em] font-mono"
+                    onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                    placeholder="••••••••"
+                    className="text-center text-2xl tracking-[0.35em] font-mono"
                     required
                   />
                 </div>
-                <Button type="submit" disabled={loading || code.length !== 6} className="mt-2">
+                <Button type="submit" disabled={loading || code.length < 6} className="mt-2">
                   {loading ? "Verifying…" : "Verify & sign in"}
                 </Button>
                 <div className="flex items-center justify-between text-xs">
