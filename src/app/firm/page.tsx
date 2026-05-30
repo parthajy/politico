@@ -17,6 +17,7 @@ type SearchParams = {
   district?: string;
   status?: string;
   min_snt?: string;
+  age?: "7" | "30" | "90" | "all";
   sort?: SortKey;
   dir?: "asc" | "desc";
   page?: string;
@@ -29,6 +30,9 @@ export default async function FirmInbox({ searchParams }: { searchParams: Search
   const sort = (searchParams.sort ?? "snt") as SortKey;
   const dir = searchParams.dir ?? "desc";
   const ascending = dir === "asc";
+  // Default to last 30d — keeps stale year-old SNT scores from cluttering
+  // the live inbox. Toggle to "all" via the age filter to see the archive.
+  const age = (searchParams.age ?? "30") as "7" | "30" | "90" | "all";
 
   // Map sort key to actual Supabase column
   const sortColumn = sort === "age" ? "events(published_at)"
@@ -57,6 +61,11 @@ export default async function FirmInbox({ searchParams }: { searchParams: Search
   if (searchParams.source) query = query.eq("events.source", searchParams.source);
   if (searchParams.district) query = query.eq("district_id", parseInt(searchParams.district, 10));
   if (searchParams.min_snt) query = query.gte("snt_score", parseFloat(searchParams.min_snt));
+  if (age !== "all") {
+    const days = parseInt(age, 10);
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    query = query.gte("classified_at", cutoff);
+  }
 
   const { data, error, count } = await query;
   if (error) {

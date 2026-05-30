@@ -52,13 +52,38 @@ export function BrainMap({ graph, title, subtitle }: { graph: BrainGraph; title:
     return () => ro.disconnect();
   }, []);
 
-  // Fit-to-view on graph load + on filter change
+  // Fit-to-view on graph load + on filter change. We do it twice — once early
+  // while the simulation is still warming up (gets the camera roughly right),
+  // then again after the layout has settled so the final framing is tight.
   useEffect(() => {
-    const t = setTimeout(() => {
-      fgRef.current?.zoomToFit?.(800, 60);
-    }, 500);
-    return () => clearTimeout(t);
+    const t1 = setTimeout(() => fgRef.current?.zoomToFit?.(400, 60), 200);
+    const t2 = setTimeout(() => fgRef.current?.zoomToFit?.(800, 60), 1400);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [graph.nodes.length, filter]);
+
+  // Tune the d3 forces for cleaner clustering — pull related nodes tight,
+  // push unrelated apart, prevent the whole graph from collapsing or
+  // exploding off-screen.
+  useEffect(() => {
+    const fg = fgRef.current;
+    if (!fg) return;
+    // give it a tick for the inner d3 sim to exist
+    const t = setTimeout(() => {
+      try {
+        fg.d3Force?.("charge")?.strength?.(-180).distanceMax(420);
+        fg.d3Force?.("link")?.distance?.((l: { kind?: string }) => {
+          // Same-cluster relationships pull tighter than cross-cluster
+          if (l.kind === "seat") return 28;
+          if (l.kind === "about") return 50;
+          if (l.kind === "tagged_with") return 90;
+          if (l.kind === "in_district") return 70;
+          return 60;
+        }).strength?.((l: { weight?: number }) => 0.4 + (l.weight ?? 0.3) * 0.4);
+        fg.d3Force?.("center")?.strength?.(0.04);
+      } catch { /* d3Force API may not be ready yet on first paint */ }
+    }, 80);
+    return () => clearTimeout(t);
+  }, [graph.nodes.length]);
 
   // Browser fullscreen API
   useEffect(() => {
@@ -332,10 +357,10 @@ export function BrainMap({ graph, title, subtitle }: { graph: BrainGraph; title:
 
           // Bright, visible edges — dim non-adjacent ones on hover
           linkColor={(link: unknown) => {
-            if (!hoverId) return "rgba(232,206,160,0.32)"; // warm sand at 32%
+            if (!hoverId) return "rgba(243,208,138,0.45)"; // warm gold at 45% — more visible
             const { s, t } = endpointIds(link);
             const isHovered = s === hoverId || t === hoverId;
-            return isHovered ? "rgba(243,208,138,0.95)" : "rgba(232,206,160,0.06)";
+            return isHovered ? "rgba(255,220,150,1)" : "rgba(232,206,160,0.08)";
           }}
           linkWidth={(link: unknown) => {
             const l = link as { weight?: number };

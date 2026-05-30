@@ -127,12 +127,16 @@ export async function loadBrainGraph(focus: BrainFocus, opts: { windowDays?: num
     nodes.push(n);
   };
 
+  // Strip the "(ST)" / "(SC)" reservation suffix — visual noise on the graph.
+  // Keep the underlying name in seed data; just trim it for display labels.
+  const cleanName = (s: string) => s.replace(/\s*\((ST|SC|GEN)\)\s*$/i, "").trim();
+
   // Districts
   for (const d of dists ?? []) {
     addNode({
       id: `dist-${d.id}`,
       kind: "district",
-      label: d.name,
+      label: cleanName(d.name),
       href: `/party/district/${d.id}`, // CMO; for ministers the layout will block this if it's not theirs
       weight: 0.35,
     });
@@ -144,7 +148,7 @@ export async function loadBrainGraph(focus: BrainFocus, opts: { windowDays?: num
     addNode({
       id: `con-${c.id}`,
       kind: "constituency",
-      label: c.name,
+      label: cleanName(c.name),
       sub: distJoin?.name ?? undefined,
       href: `/party/constituency/${c.id}`,
       risk_band: (threatByCon.get(c.id) as BrainNode["risk_band"]) ?? null,
@@ -162,7 +166,7 @@ export async function loadBrainGraph(focus: BrainFocus, opts: { windowDays?: num
     addNode({
       id: `min-${m.id}`,
       kind: "minister",
-      label: m.name,
+      label: cleanName(m.name),
       sub: m.is_cm ? "Chief Minister" : m.is_deputy_cm ? "Deputy CM" : (m.portfolio ?? "Minister"),
       href: `/party/entity/person/${m.id}`,
       risk_band: (band as BrainNode["risk_band"]) ?? null,
@@ -174,7 +178,7 @@ export async function loadBrainGraph(focus: BrainFocus, opts: { windowDays?: num
         addNode({
           id: `con-${constJoin.id}`,
           kind: "constituency",
-          label: constJoin.name,
+          label: cleanName(constJoin.name),
           sub: constJoin.districts?.name ?? undefined,
           href: `/party/constituency/${constJoin.id}`,
           risk_band: (threatByCon.get(constJoin.id) as BrainNode["risk_band"]) ?? null,
@@ -184,7 +188,7 @@ export async function loadBrainGraph(focus: BrainFocus, opts: { windowDays?: num
           addNode({
             id: `dist-${constJoin.districts.id}`,
             kind: "district",
-            label: constJoin.districts.name,
+            label: cleanName(constJoin.districts.name),
             href: `/party/district/${constJoin.districts.id}`,
             weight: 0.35,
           });

@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auditLog } from "@/lib/audit";
 import { Sidebar, type NavItem } from "@/components/sidebar";
+import { FeedbackButton } from "@/components/feedback-button";
 import { requireSession, isMinisterScope, isCmoScope } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -53,6 +54,7 @@ export default async function PartyLayout({ children }: { children: React.ReactN
     <div className="flex min-h-screen bg-surface">
       <Sidebar scope="party" nav={nav} userName={userLabel} />
       <main className="min-w-0 flex-1">{children}</main>
+      <FeedbackButton />
     </div>
   );
 }

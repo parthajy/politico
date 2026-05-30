@@ -6,13 +6,32 @@ import { fetchWithTimeout } from "./util";
 type Feed = { url: string; source: EventSource; tag?: string };
 
 const INDIAN_OUTLET_FEEDS: Feed[] = [
-  // Indian outlet RSS — use search/topic feeds where state-specific feeds aren't published.
+  // National outlets — broad feeds, AP-relevance filter applied below.
   { url: "https://www.thehindu.com/news/national/other-states/feeder/default.rss", source: "rss", tag: "thehindu" },
   { url: "https://indianexpress.com/section/north-east-india/feed/", source: "rss", tag: "indian_express" },
   { url: "https://www.hindustantimes.com/feeds/rss/india-news/rssfeed.xml", source: "rss", tag: "hindustan_times" },
   { url: "https://feeds.feedburner.com/ndtvnews-india-news", source: "rss", tag: "ndtv" },
+
+  // Local AP outlets — AP-only by definition, no relevance filter needed.
   { url: "https://arunachaltimes.in/index.php/feed/", source: "rss", tag: "arunachal_times" },
   { url: "https://arunachalfront.com/feed/", source: "rss", tag: "arunachal_front" },
+  { url: "https://www.echoofarunachal.in/feed/", source: "rss", tag: "echo_of_arunachal" },
+  { url: "https://www.eastmojo.com/state/arunachal-pradesh/feed/", source: "rss", tag: "eastmojo_ap" },
+  { url: "https://nenow.in/north-east-news/arunachal-pradesh/feed", source: "rss", tag: "nenow_ap" },
+  { url: "https://www.sentinelassam.com/topic/arunachal-pradesh/feed", source: "rss", tag: "sentinel_ap" },
+  { url: "https://nelive.in/section/arunachal-pradesh/feed", source: "rss", tag: "nelive_ap" },
+
+  // PIB India — official central govt press releases (AP-keyword filtered below).
+  { url: "https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=3", source: "rss", tag: "pib_north_east" },
+  { url: "https://pib.gov.in/RssMain.aspx?ModId=6&Lang=1&Regid=0", source: "rss", tag: "pib_national" },
+
+  // Nitter (X/Twitter via RSS proxy). We sample 3 instances and let the
+  // ingest pipe drop duplicates on the (source, source_id) unique key. If
+  // Nitter instances go dark, swap them out — they're community-run.
+  { url: "https://nitter.privacydev.net/PemaKhanduBJP/rss", source: "rss", tag: "x_cm_khandu" },
+  { url: "https://nitter.privacydev.net/ChownaMeinBJP/rss", source: "rss", tag: "x_dycm_mein" },
+  { url: "https://nitter.privacydev.net/ArunachalCMO/rss", source: "rss", tag: "x_cmo" },
+  { url: "https://nitter.privacydev.net/search/rss?f=tweets&q=arunachal", source: "rss", tag: "x_search_arunachal" },
 ];
 
 // Google News RSS — one per Tier-1 district + per CM/DyCM + per top issue.
@@ -121,7 +140,12 @@ export async function fetchRss(): Promise<FetchResult> {
         const items = parseRss(xml).slice(0, 15);
         for (const it of items) {
           // Keep only AP-relevant items for the broad national feeds
-          const isBroad = feed.tag === "thehindu" || feed.tag === "hindustan_times" || feed.tag === "ndtv";
+          const isBroad =
+            feed.tag === "thehindu" ||
+            feed.tag === "hindustan_times" ||
+            feed.tag === "ndtv" ||
+            feed.tag === "pib_national" ||
+            feed.tag === "x_search_arunachal";
           if (isBroad && !isApRelevant(it.title) && !isApRelevant(it.description)) continue;
           events.push({
             source: feed.source,

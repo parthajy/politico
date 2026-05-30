@@ -48,7 +48,7 @@ export function InboxClient({
 }: {
   rows: InboxRow[];
   districts: { id: number; name: string }[];
-  initial: { source?: string; district?: string; status?: string; min_snt?: string };
+  initial: { source?: string; district?: string; status?: string; min_snt?: string; age?: string };
   page: number;
   totalPages: number;
   totalCount: number;
@@ -132,6 +132,12 @@ export function InboxClient({
           { value: "0.85", label: "S1 only (≥0.85)" },
           { value: "0.6", label: "S2+ (≥0.6)" },
           { value: "0.35", label: "S3+ (≥0.35)" },
+        ]} />
+        <Select label="Age" value={initial.age ?? "30"} onChange={(v) => setParam("age", v === "30" ? "" : v)} options={[
+          { value: "7", label: "Last 7 days" },
+          { value: "30", label: "Last 30 days" },
+          { value: "90", label: "Last 90 days" },
+          { value: "all", label: "All time (incl. archive)" },
         ]} />
         <span className="ml-auto text-xs text-muted">
           {filtered.length} of {totalCount.toLocaleString()} signals · page {page}/{totalPages}{pending && " · loading…"}

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Sidebar, type NavItem } from "@/components/sidebar";
+import { FeedbackButton } from "@/components/feedback-button";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +46,7 @@ export default async function FirmLayout({ children }: { children: React.ReactNo
     <div className="flex min-h-screen bg-surface">
       <Sidebar scope="firm" nav={nav} userName={profile.full_name ?? profile.email} />
       <main className="min-w-0 flex-1">{children}</main>
+      <FeedbackButton />
     </div>
   );
 }
