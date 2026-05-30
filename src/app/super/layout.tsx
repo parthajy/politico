@@ -30,7 +30,7 @@ export default async function SuperLayout({ children }: { children: React.ReactN
   }
 
   return (
-    <div className="flex min-h-screen bg-sand">
+    <div className="flex min-h-screen bg-surface">
       <Sidebar scope="super" nav={NAV} userName={profile.full_name ?? profile.email} />
       <main className="min-w-0 flex-1">{children}</main>
     </div>

@@ -42,7 +42,7 @@ export default async function FirmLayout({ children }: { children: React.ReactNo
   }
 
   return (
-    <div className="flex min-h-screen bg-sand">
+    <div className="flex min-h-screen bg-surface">
       <Sidebar scope="firm" nav={nav} userName={profile.full_name ?? profile.email} />
       <main className="min-w-0 flex-1">{children}</main>
     </div>

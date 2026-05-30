@@ -4,6 +4,8 @@ import { TodaysCall } from "./todays-call";
 import { Narratives } from "./narratives";
 import { CmoReadingWidget } from "./cmo-reading";
 import { ActivityTicker } from "./activity-ticker";
+import { StatCard } from "@/components/ui/stat-card";
+import { subHours, subDays } from "date-fns";
 
 export const dynamic = "force-dynamic";
 
@@ -102,25 +104,90 @@ export default async function FirmInbox({ searchParams }: { searchParams: Search
   const total = count ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+  // Stat strip — quick health snapshot at the top of the inbox.
+  const since24h = subHours(new Date(), 24).toISOString();
+  const since7d = subDays(new Date(), 7).toISOString();
+  const prev24h = subHours(new Date(), 48).toISOString();
+  const [
+    { count: today_signals },
+    { count: prev_signals },
+    { count: open_queue },
+    { count: active_alerts },
+    { count: stories_week },
+  ] = await Promise.all([
+    supabase.from("events").select("id", { count: "exact", head: true }).gte("ingested_at", since24h),
+    supabase.from("events").select("id", { count: "exact", head: true }).gte("ingested_at", prev24h).lt("ingested_at", since24h),
+    supabase.from("field_submissions").select("id", { count: "exact", head: true }).in("status", ["pending", "needs_human"]),
+    supabase.from("alerts").select("id", { count: "exact", head: true }).is("resolved_at", null).in("severity", ["s1", "s2"]),
+    supabase.from("stories").select("id", { count: "exact", head: true }).eq("status", "published").gte("published_at", since7d),
+  ]);
+
+  const signalsDelta = (today_signals ?? 0) - (prev_signals ?? 0);
+  const signalsPct = (prev_signals ?? 0) > 0 ? Math.round((signalsDelta / (prev_signals ?? 1)) * 100) : null;
+
   return (
-    <div className="container mx-auto max-w-7xl px-6 py-10">
-      <div className="text-xs uppercase tracking-[0.18em] text-bronze">Signal Inbox</div>
-      <h1 className="mt-2 font-serif text-3xl font-bold text-navy">Today&apos;s signals</h1>
-      <p className="mt-1 text-sm text-muted">Ranked by composite SNT score. Click a row to see full classification and triage actions.</p>
-      <ActivityTicker />
-      <TodaysCall />
-      <CmoReadingWidget />
-      <Narratives />
-      <InboxClient
-        rows={rows}
-        districts={districts ?? []}
-        initial={searchParams}
-        page={page}
-        totalPages={totalPages}
-        totalCount={total}
-        sort={sort}
-        dir={dir}
-      />
+    <div className="container mx-auto max-w-7xl px-6 py-8">
+      {/* Header row */}
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-bronze">Signal Inbox</div>
+          <h1 className="mt-2 font-serif text-3xl font-bold text-navy">Today&apos;s signals</h1>
+          <p className="mt-1 text-sm text-muted">Ranked by composite SNT score. Click a row to see full classification and triage actions.</p>
+        </div>
+      </div>
+
+      {/* Stat strip — 4 quick-glance KPIs */}
+      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          label="Signals · 24h"
+          value={(today_signals ?? 0).toLocaleString()}
+          delta={signalsPct != null ? {
+            value: `${signalsDelta >= 0 ? "+" : ""}${signalsPct}%`,
+            tone: signalsDelta >= 0 ? "positive" : "negative",
+          } : undefined}
+          hint={`vs ${(prev_signals ?? 0).toLocaleString()} the prior 24h`}
+        />
+        <StatCard
+          label="Triage queue"
+          value={(open_queue ?? 0).toString()}
+          hint={open_queue && open_queue > 10 ? "Backlog growing" : "Healthy"}
+          delta={open_queue && open_queue > 10 ? { value: "Action", tone: "negative" } : undefined}
+        />
+        <StatCard
+          label="Active S1 / S2"
+          value={(active_alerts ?? 0).toString()}
+          hint={active_alerts && active_alerts > 0 ? "Unresolved" : "All clear"}
+          delta={active_alerts && active_alerts > 0 ? { value: "Live", tone: "negative" } : { value: "Clear", tone: "positive" }}
+        />
+        <StatCard
+          label="Stories · 7d"
+          value={(stories_week ?? 0).toString()}
+          hint="Published to outlets"
+        />
+      </div>
+
+      <div className="mt-4">
+        <ActivityTicker />
+      </div>
+
+      <div className="mt-6 space-y-6">
+        <TodaysCall />
+        <CmoReadingWidget />
+        <Narratives />
+      </div>
+
+      <div className="mt-6">
+        <InboxClient
+          rows={rows}
+          districts={districts ?? []}
+          initial={searchParams}
+          page={page}
+          totalPages={totalPages}
+          totalCount={total}
+          sort={sort}
+          dir={dir}
+        />
+      </div>
     </div>
   );
 }

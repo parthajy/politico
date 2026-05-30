@@ -86,7 +86,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-sand">
+    <main className="min-h-screen bg-surface">
       <div className="container mx-auto flex max-w-md flex-col items-center justify-center px-6 py-24">
         <div className="mb-6 flex flex-col items-center text-center">
           <Image src="/logo.png" alt="Samvidya" width={1114} height={242} className="h-9 w-auto" priority />

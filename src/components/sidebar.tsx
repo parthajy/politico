@@ -9,6 +9,12 @@ import { SignOutButton } from "@/components/sign-out-button";
 
 export type NavItem = { href: string; label: string };
 
+const SCOPE_LABEL: Record<"firm" | "party" | "super", string> = {
+  firm: "Analyst workbench",
+  party: "Cabinet dashboard",
+  super: "Superadmin",
+};
+
 export function Sidebar({
   scope,
   nav,
@@ -26,63 +32,77 @@ export function Sidebar({
     return pathname === href || pathname.startsWith(href + "/");
   }
 
+  // First-letter avatar fallback (no profile photo wired in yet)
+  const initials = userName.split(/\s+|@/).slice(0, 2).map((s) => s[0]?.toUpperCase()).join("");
+
   return (
     <>
-      <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col border-r border-navy-deep bg-navy text-white">
-        {/* Logo */}
-        <div className="px-4 pt-5 pb-3">
-          <Link href={`/${scope}`} className="block rounded-md bg-white px-3 py-2.5">
-            <Image src="/logo.png" alt="Samvidya" width={1114} height={242} className="h-5 w-auto" priority />
+      <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col border-r border-border bg-white">
+        {/* Brand block */}
+        <div className="px-4 pt-5 pb-4">
+          <Link href={`/${scope}`} className="block">
+            <Image src="/logo.png" alt="Samvidya" width={1114} height={242} className="h-6 w-auto" priority />
           </Link>
-          <div className="mt-2 text-[10px] uppercase tracking-[0.18em] text-bronze">
-            {scope === "firm" ? "Analyst workbench" : scope === "party" ? "Cabinet dashboard" : "Superadmin"}
+          <div className="mt-2 text-[10px] font-medium uppercase tracking-[0.18em] text-bronze">
+            {SCOPE_LABEL[scope]}
           </div>
         </div>
 
         {/* Nav */}
-        <nav className="mt-2 flex-1 overflow-y-auto px-3">
+        <nav className="mt-2 flex-1 overflow-y-auto px-2.5">
           {nav.map((n) => {
             const active = isActive(n.href);
             return (
               <Link
                 key={n.href}
                 href={n.href}
-                className={`mb-0.5 flex items-center rounded-md px-3 py-2 text-sm transition ${
+                className={`mb-0.5 flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition ${
                   active
-                    ? "bg-white/10 font-medium text-white"
-                    : "text-white/70 hover:bg-white/5 hover:text-white"
+                    ? "bg-bronze-soft font-medium text-bronze-dark"
+                    : "text-foreground/70 hover:bg-surface-2 hover:text-foreground"
                 }`}
               >
-                {active && <span className="mr-2 h-3.5 w-0.5 rounded-full bg-bronze" />}
-                <span className={active ? "" : "ml-[14px]"}>{n.label}</span>
+                <span
+                  className={`inline-block h-1.5 w-1.5 rounded-full ${
+                    active ? "bg-bronze" : "bg-transparent group-hover:bg-muted/40"
+                  }`}
+                />
+                {n.label}
               </Link>
             );
           })}
         </nav>
 
-        {/* Footer */}
-        <div className="border-t border-white/10 px-3 py-3">
+        {/* Footer — glossary + user */}
+        <div className="border-t border-border px-3 py-3">
           <button
             onClick={() => setGlossaryOpen(true)}
-            className="mb-2 flex w-full items-center rounded-md px-3 py-1.5 text-xs text-white/70 hover:bg-white/5 hover:text-white"
+            className="mb-2 flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-[11px] text-muted hover:bg-surface-2 hover:text-foreground"
           >
-            ? Glossary
+            <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-border text-[9px] text-muted">?</span>
+            Glossary
           </button>
-          <div className="px-3 text-[11px] text-white/50">{userName}</div>
-          <div className="mt-1.5 px-3">
-            <SignOutButton />
+
+          <div className="flex items-center gap-2.5 px-2 pt-1">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-bronze-soft text-[11px] font-semibold text-bronze-dark">
+              {initials || "U"}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[12px] font-medium text-navy">{userName}</div>
+              <SignOutButton />
+            </div>
           </div>
         </div>
       </aside>
 
       {glossaryOpen && (
         <div className="fixed inset-0 z-50 flex" onClick={() => setGlossaryOpen(false)}>
-          <div className="flex-1 bg-navy-deep/40" />
+          <div className="flex-1 bg-navy/20" />
           <aside
             onClick={(e) => e.stopPropagation()}
-            className="flex h-full w-full max-w-lg flex-col overflow-y-auto border-l border-border bg-white shadow-sm"
+            className="flex h-full w-full max-w-lg flex-col overflow-y-auto border-l border-border bg-white shadow-soft-lg"
           >
-            <div className="sticky top-0 flex items-center justify-between border-b border-border bg-sand px-5 py-3">
+            <div className="sticky top-0 flex items-center justify-between border-b border-border bg-surface px-5 py-3">
               <div>
                 <div className="text-xs uppercase tracking-[0.18em] text-bronze">Reference</div>
                 <h2 className="font-serif text-lg font-bold text-navy">Glossary</h2>

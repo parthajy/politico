@@ -2,14 +2,15 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { StatCard } from "@/components/ui/stat-card";
 import { formatDistanceToNowStrict, subDays, subHours } from "date-fns";
 
 export const dynamic = "force-dynamic";
 
-const ROLE_COLOR: Record<string, "navy" | "bronze" | "default" | "positive"> = {
-  superadmin: "bronze",
-  firm_admin: "navy",
-  firm_analyst: "navy",
+const ROLE_COLOR: Record<string, "bronze-soft" | "default" | "positive" | "s2-soft"> = {
+  superadmin: "bronze-soft",
+  firm_admin: "s2-soft",
+  firm_analyst: "s2-soft",
   firm_intern: "default",
   party_viewer: "positive",
   volunteer: "default",
@@ -81,48 +82,68 @@ export default async function SuperOverview() {
   const SOURCES = ["reddit", "youtube", "gdelt", "google_news", "rss", "manual"];
 
   return (
-    <div className="container mx-auto max-w-7xl px-6 py-10">
-      <div className="text-xs uppercase tracking-[0.18em] text-bronze">Superadmin</div>
-      <h1 className="mt-2 font-serif text-3xl font-bold text-navy">Overview</h1>
-      <p className="mt-1 text-sm text-muted">Everything in one place. Five panels: People, System pulse, Activity, Client engagement, Pipeline health.</p>
+    <div className="container mx-auto max-w-7xl px-6 py-8">
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <div className="text-[11px] font-medium uppercase tracking-[0.18em] text-bronze">Superadmin</div>
+          <h1 className="mt-2 font-serif text-3xl font-bold text-navy">Overview</h1>
+          <p className="mt-1 text-sm text-muted">Everything in one place — people, system pulse, activity, engagement, pipeline health.</p>
+        </div>
+        <Link href="/super/team" className="text-xs font-medium text-bronze hover:text-bronze-dark">Manage team →</Link>
+      </div>
 
-      {/* People panel */}
-      <Card className="mt-6">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>People</CardTitle>
-            <Link href="/super/team" className="text-xs text-bronze underline">Manage team →</Link>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(counts).sort().map(([role, n]) => (
-              <Badge key={role} variant={ROLE_COLOR[role] ?? "default"}>{labelRole(role)} · {n}</Badge>
-            ))}
-            {Object.keys(counts).length === 0 && <span className="text-xs text-muted">No users yet.</span>}
-          </div>
-        </CardContent>
-      </Card>
+      {/* People — converted from chip-list to stat-card grid */}
+      <div className="mt-6 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        {(["superadmin", "firm_admin", "firm_analyst", "firm_intern", "party_viewer", "volunteer"] as const).map((role) => (
+          <StatCard
+            key={role}
+            label={labelRole(role)}
+            value={(counts[role] ?? 0).toString()}
+            hint={role === "volunteer" ? "Field network" : role === "party_viewer" ? "Govt principals" : role === "firm_intern" ? "Queue triage" : "Workbench"}
+          />
+        ))}
+      </div>
 
-      {/* System pulse — today */}
-      <Card className="mt-6">
-        <CardHeader>
-          <CardTitle>System pulse</CardTitle>
-          <CardDescription>Rolled across the last 24 hours unless noted.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-3 md:grid-cols-4">
-            <Stat label="Signals · 24h" value={(signals24 ?? 0).toLocaleString()} />
-            <Stat label="Classified · 24h" value={(classifs24 ?? 0).toLocaleString()} />
-            <Stat label="Queue pending" value={(queueAll ?? 0).toString()} warn={(queueAll ?? 0) > 10} />
-            <Stat label="Triage actions · 24h" value={(triageDone24 ?? 0).toString()} />
-            <Stat label="Stories published · 7d" value={(storiesPub7 ?? 0).toString()} />
-            <Stat label="Briefs published · 7d" value={(briefsPub7 ?? 0).toString()} />
-            <Stat label="Decisions logged · 7d" value={(decisions7 ?? 0).toString()} />
-            <Stat label="Active alerts (S1+S2)" value={(alertsActive ?? 0).toString()} warn={(alertsActive ?? 0) > 8} />
+      {/* System pulse — top KPIs */}
+      <section className="mt-8">
+        <div className="mb-3 flex items-end justify-between">
+          <div>
+            <h2 className="font-serif text-lg font-bold text-navy">System pulse</h2>
+            <p className="text-xs text-muted">Rolled across the last 24 hours unless noted.</p>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            label="Signals · 24h"
+            value={(signals24 ?? 0).toLocaleString()}
+            hint={`${(classifs24 ?? 0).toLocaleString()} classified by AI`}
+          />
+          <StatCard
+            label="Triage queue"
+            value={(queueAll ?? 0).toString()}
+            hint={(queueAll ?? 0) > 10 ? "Backlog — drain it" : "Healthy"}
+            delta={(queueAll ?? 0) > 10 ? { value: "Action", tone: "negative" } : undefined}
+          />
+          <StatCard
+            label="Triage actions · 24h"
+            value={(triageDone24 ?? 0).toString()}
+            hint="Interns + analysts acting on signals"
+          />
+          <StatCard
+            label="Active S1 / S2"
+            value={(alertsActive ?? 0).toString()}
+            hint={(alertsActive ?? 0) > 0 ? "Unresolved" : "All clear"}
+            delta={(alertsActive ?? 0) > 0
+              ? { value: "Live", tone: "negative" }
+              : { value: "Clear", tone: "positive" }}
+          />
+        </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          <StatCard label="Stories published · 7d" value={(storiesPub7 ?? 0).toString()} />
+          <StatCard label="Briefs published · 7d" value={(briefsPub7 ?? 0).toString()} />
+          <StatCard label="Decisions logged · 7d" value={(decisions7 ?? 0).toString()} />
+        </div>
+      </section>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         {/* Activity feed */}
@@ -175,40 +196,36 @@ export default async function SuperOverview() {
       </div>
 
       {/* Pipeline health */}
-      <Card className="mt-6">
+      <Card className="mt-8">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Pipeline health</CardTitle>
-            <Link href="/super/health" className="text-xs text-bronze underline">All sources →</Link>
+            <Link href="/super/health" className="text-xs font-medium text-bronze hover:text-bronze-dark">All sources →</Link>
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-2 md:grid-cols-3 lg:grid-cols-6">
+          <div className="grid gap-3 md:grid-cols-3 lg:grid-cols-6">
             {SOURCES.map((s) => {
               const last = sourceLast.get(s);
               const ageHours = last ? (Date.now() - new Date(last).getTime()) / 3600_000 : Infinity;
               const today = sourceToday.get(s) ?? 0;
-              const status = !last ? "—" : ageHours <= 6 ? "live" : ageHours <= 48 ? "recent" : ageHours <= 168 ? "idle" : "stale";
+              const status = !last ? "never" : ageHours <= 6 ? "live" : ageHours <= 48 ? "recent" : ageHours <= 168 ? "idle" : "stale";
+              const statusVariant = status === "live" ? "positive" : status === "recent" ? "bronze-soft" : status === "stale" || status === "never" ? "s1-soft" : "s3-soft";
               return (
-                <div key={s} className="rounded border border-border bg-sand/40 p-3 text-xs">
-                  <div className="font-medium text-navy">{s}</div>
-                  <div className="mt-1 text-[10px] uppercase tracking-wider text-muted">{status}</div>
-                  <div className="mt-1 numeric-callout text-sm text-navy">{today} <span className="text-[10px] text-muted">today</span></div>
+                <div key={s} className="rounded-xl border border-border bg-white p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-medium text-navy capitalize">{s.replace("_", " ")}</div>
+                    <Badge variant={statusVariant as never}>{status}</Badge>
+                  </div>
+                  <div className="mt-2 numeric-callout text-lg text-navy">{today}
+                    <span className="ml-1 text-[10px] font-sans font-normal text-muted">today</span>
+                  </div>
                 </div>
               );
             })}
           </div>
         </CardContent>
       </Card>
-    </div>
-  );
-}
-
-function Stat({ label, value, warn }: { label: string; value: string; warn?: boolean }) {
-  return (
-    <div>
-      <div className="text-[10px] uppercase tracking-wider text-muted">{label}</div>
-      <div className={`numeric-callout mt-0.5 text-2xl ${warn ? "text-severity-1" : "text-navy"}`}>{value}</div>
     </div>
   );
 }

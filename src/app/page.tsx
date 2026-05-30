@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 
 export default function LandingPage() {
   return (
-    <main className="min-h-screen bg-sand">
+    <main className="min-h-screen bg-surface">
       <div className="container mx-auto max-w-5xl px-6 py-24">
         <div className="text-xs uppercase tracking-[0.2em] text-bronze">Samvidya</div>
         <h1 className="mt-4 font-serif text-5xl font-bold text-navy md:text-6xl">

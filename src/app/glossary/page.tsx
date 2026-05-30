@@ -5,7 +5,7 @@ export const dynamic = "force-static";
 
 export default function GlossaryPage() {
   return (
-    <main className="min-h-screen bg-sand">
+    <main className="min-h-screen bg-surface">
       <div className="container mx-auto max-w-3xl px-6 py-16">
         <div className="text-xs uppercase tracking-[0.18em] text-bronze">Reference</div>
         <h1 className="mt-2 font-serif text-4xl font-bold text-navy">Samvidya glossary</h1>

@@ -36,7 +36,7 @@ export default function VolunteerLogin() {
   }
 
   return (
-    <main className="min-h-screen bg-sand">
+    <main className="min-h-screen bg-surface">
       <div className="container mx-auto flex max-w-sm flex-col items-center px-4 py-16">
         <Image src="/logo.png" alt="Samvidya" width={1114} height={242} className="h-8 w-auto" priority />
         <div className="mt-3 text-xs uppercase tracking-[0.2em] text-bronze">Field app</div>
