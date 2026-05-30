@@ -4,17 +4,20 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import type { ReactNode } from "react";
 import { GLOSSARY } from "@/lib/glossary";
 import { SignOutButton } from "@/components/sign-out-button";
 import { CommandPalette } from "@/components/command-palette";
+import { Icons, type IconName } from "@/components/sidebar-icons";
 
+// NB: `icon` is the icon NAME (a string), not the component itself.
+// Server-component layouts can't pass function references across the RSC
+// boundary; the Sidebar resolves the name from the Icons map at render time.
 export type NavItem = {
   href: string;
   label: string;
   badge?: number;
-  badgeTone?: "default" | "positive" | "warning"; // colour of the count pill
-  icon?: (props: { className?: string }) => ReactNode;
+  badgeTone?: "default" | "positive" | "warning";
+  icon?: IconName;
   /** Optional grouping label. Items with the same `section` render together under a small caps header. */
   section?: string;
 };
@@ -126,7 +129,7 @@ export function Sidebar({
               )}
               {group.items.map((n) => {
                 const active = isActive(n.href);
-                const Icon = n.icon;
+                const Icon = n.icon ? Icons[n.icon] : null;
 
                 if (collapsed) {
                   return (

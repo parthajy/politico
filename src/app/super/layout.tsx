@@ -2,17 +2,16 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Sidebar, type NavItem } from "@/components/sidebar";
 import { FeedbackButton } from "@/components/feedback-button";
-import { Icons } from "@/components/sidebar-icons";
 
 export const dynamic = "force-dynamic";
 
 const BASE_NAV: NavItem[] = [
-  { href: "/super",            label: "Overview",          icon: Icons.overview },
-  { href: "/super/team",       label: "People",            icon: Icons.team,       section: "Manage" },
-  { href: "/super/feedback",   label: "Feedback",          icon: Icons.feedback,   section: "Manage", badgeTone: "warning" },
-  { href: "/super/activity",   label: "Activity",          icon: Icons.activity,   section: "Pulse" },
-  { href: "/super/engagement", label: "Client engagement", icon: Icons.engagement, section: "Pulse" },
-  { href: "/super/health",     label: "Pipeline health",   icon: Icons.health,     section: "Pulse" },
+  { href: "/super",            label: "Overview",          icon: "overview" },
+  { href: "/super/team",       label: "People",            icon: "team",       section: "Manage" },
+  { href: "/super/feedback",   label: "Feedback",          icon: "feedback",   section: "Manage", badgeTone: "warning" },
+  { href: "/super/activity",   label: "Activity",          icon: "activity",   section: "Pulse" },
+  { href: "/super/engagement", label: "Client engagement", icon: "engagement", section: "Pulse" },
+  { href: "/super/health",     label: "Pipeline health",   icon: "health",     section: "Pulse" },
 ];
 
 export default async function SuperLayout({ children }: { children: React.ReactNode }) {

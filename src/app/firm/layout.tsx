@@ -2,24 +2,23 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Sidebar, type NavItem } from "@/components/sidebar";
 import { FeedbackButton } from "@/components/feedback-button";
-import { Icons } from "@/components/sidebar-icons";
 
 export const dynamic = "force-dynamic";
 
 const NAV: (NavItem & { adminOnly?: boolean; internToo?: boolean })[] = [
   // Main workspace
-  { href: "/firm",            label: "Inbox",         icon: Icons.inbox },
-  { href: "/firm/queue",      label: "Triage queue",  icon: Icons.queue, internToo: true },
-  { href: "/firm/narratives", label: "Narratives",    icon: Icons.narratives, section: "Intelligence" },
-  { href: "/firm/voices",     label: "Voices",        icon: Icons.voices,     section: "Intelligence" },
-  { href: "/firm/sources",    label: "Sources",       icon: Icons.sources,    section: "Intelligence" },
-  { href: "/firm/threats",    label: "Threats",       icon: Icons.threats,    section: "Intelligence", adminOnly: true },
-  { href: "/firm/stories",    label: "Stories",       icon: Icons.stories,    section: "Output" },
-  { href: "/firm/briefs",     label: "Briefs",        icon: Icons.briefs,     section: "Output" },
-  { href: "/firm/agenda",     label: "Agenda",        icon: Icons.agenda,     section: "Output" },
-  { href: "/firm/decisions",  label: "Decisions",     icon: Icons.decisions,  section: "Output" },
-  { href: "/firm/watch",      label: "My watchlist",  icon: Icons.watchlist,  section: "Personal" },
-  { href: "/firm/audit",      label: "Audit",         icon: Icons.audit,      section: "Personal", adminOnly: true },
+  { href: "/firm",            label: "Inbox",         icon: "inbox" },
+  { href: "/firm/queue",      label: "Triage queue",  icon: "queue", internToo: true },
+  { href: "/firm/narratives", label: "Narratives",    icon: "narratives", section: "Intelligence" },
+  { href: "/firm/voices",     label: "Voices",        icon: "voices",     section: "Intelligence" },
+  { href: "/firm/sources",    label: "Sources",       icon: "sources",    section: "Intelligence" },
+  { href: "/firm/threats",    label: "Threats",       icon: "threats",    section: "Intelligence", adminOnly: true },
+  { href: "/firm/stories",    label: "Stories",       icon: "stories",    section: "Output" },
+  { href: "/firm/briefs",     label: "Briefs",        icon: "briefs",     section: "Output" },
+  { href: "/firm/agenda",     label: "Agenda",        icon: "agenda",     section: "Output" },
+  { href: "/firm/decisions",  label: "Decisions",     icon: "decisions",  section: "Output" },
+  { href: "/firm/watch",      label: "My watchlist",  icon: "watchlist",  section: "Personal" },
+  { href: "/firm/audit",      label: "Audit",         icon: "audit",      section: "Personal", adminOnly: true },
   // /firm/brain reachable via the brain-icon shortcut at the top of the sidebar
 ];
 
