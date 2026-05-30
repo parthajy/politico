@@ -4,11 +4,20 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { GLOSSARY } from "@/lib/glossary";
 import { SignOutButton } from "@/components/sign-out-button";
 import { CommandPalette } from "@/components/command-palette";
 
-export type NavItem = { href: string; label: string; badge?: number };
+export type NavItem = {
+  href: string;
+  label: string;
+  badge?: number;
+  badgeTone?: "default" | "positive" | "warning"; // colour of the count pill
+  icon?: (props: { className?: string }) => ReactNode;
+  /** Optional grouping label. Items with the same `section` render together under a small caps header. */
+  section?: string;
+};
 
 const SCOPE_LABEL: Record<"firm" | "party" | "super", string> = {
   firm: "Analyst workbench",
@@ -31,7 +40,6 @@ export function Sidebar({
   const [glossaryOpen, setGlossaryOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
-  // Load persisted state once on mount
   useEffect(() => {
     try {
       setCollapsed(localStorage.getItem(COLLAPSE_KEY) === "1");
@@ -53,19 +61,29 @@ export function Sidebar({
 
   const initials = userName.split(/\s+|@/).slice(0, 2).map((s) => s[0]?.toUpperCase()).join("");
 
+  // Group nav items by section preserving order. Items without a section go
+  // first as an unlabelled group at the top.
+  type Group = { section: string | null; items: NavItem[] };
+  const groups: Group[] = [];
+  for (const item of nav) {
+    const last = groups[groups.length - 1];
+    if (last && last.section === (item.section ?? null)) last.items.push(item);
+    else groups.push({ section: item.section ?? null, items: [item] });
+  }
+
   return (
     <>
       <aside
-        className={`sticky top-0 flex h-screen shrink-0 flex-col border-r border-border bg-white transition-[width] duration-200 ease-out ${
-          collapsed ? "w-14" : "w-60"
+        className={`sticky top-0 flex h-screen shrink-0 flex-col border-r border-border bg-surface-2/60 transition-[width] duration-200 ease-out ${
+          collapsed ? "w-16" : "w-64"
         }`}
       >
-        {/* Brand block + collapse toggle + brain-map shortcut */}
-        <div className={`pt-5 pb-4 ${collapsed ? "px-2" : "px-4"}`}>
+        {/* Brand block */}
+        <div className={`pt-5 pb-4 ${collapsed ? "px-3" : "px-5"}`}>
           <div className="flex items-center justify-between gap-2">
             <Link href={`/${scope}`} className="block" title="Samvidya">
               {collapsed ? (
-                <div className="flex h-7 w-7 items-center justify-center rounded-md bg-navy text-[11px] font-bold text-white">S</div>
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-navy text-[12px] font-bold text-white shadow-soft">S</div>
               ) : (
                 <Image src="/logo.png" alt="Samvidya" width={1114} height={242} className="h-6 w-auto" priority />
               )}
@@ -74,11 +92,11 @@ export function Sidebar({
               <Link
                 href={`/${scope}/brain`}
                 title="Brain map — entity graph"
-                className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border text-bronze-dark hover:border-bronze hover:bg-bronze-soft"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-white text-bronze-dark shadow-soft hover:border-bronze hover:bg-bronze-soft"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/>
-                  <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/>
+                  <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z" />
+                  <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z" />
                 </svg>
               </Link>
             )}
@@ -92,54 +110,72 @@ export function Sidebar({
 
         {/* Search trigger — opens the ⌘K palette */}
         {!collapsed && (
-          <div className="px-3 pb-2">
+          <div className="px-3 pb-3">
             <CommandPalette />
           </div>
         )}
 
-        {/* Nav */}
-        <nav className={`mt-1 flex-1 overflow-y-auto ${collapsed ? "px-2" : "px-2.5"}`}>
-          {nav.map((n) => {
-            const active = isActive(n.href);
-            // Collapsed mode: just a colored dot pill as the link target
-            if (collapsed) {
-              return (
-                <Link
-                  key={n.href}
-                  href={n.href}
-                  title={n.label}
-                  className={`mb-0.5 flex h-9 items-center justify-center rounded-lg transition ${
-                    active ? "bg-bronze-soft text-bronze-dark" : "text-foreground/60 hover:bg-surface-2 hover:text-foreground"
-                  }`}
-                >
-                  <span className="text-[11px] font-semibold uppercase">{n.label[0]}</span>
-                </Link>
-              );
-            }
-            return (
-              <Link
-                key={n.href}
-                href={n.href}
-                className={`mb-0.5 flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition ${
-                  active
-                    ? "bg-bronze-soft font-medium text-bronze-dark"
-                    : "text-foreground/70 hover:bg-surface-2 hover:text-foreground"
-                }`}
-              >
-                <span
-                  className={`inline-block h-1.5 w-1.5 rounded-full ${
-                    active ? "bg-bronze" : "bg-transparent group-hover:bg-muted/40"
-                  }`}
-                />
-                <span className="flex-1">{n.label}</span>
-                {(n.badge ?? 0) > 0 && (
-                  <span className="rounded-full bg-severity-1 px-1.5 py-px text-[10px] font-semibold text-white">
-                    {n.badge! > 99 ? "99+" : n.badge}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
+        {/* Nav — grouped by optional section */}
+        <nav className={`mt-1 flex-1 overflow-y-auto ${collapsed ? "px-2" : "px-3"} pb-4`}>
+          {groups.map((group, gi) => (
+            <div key={gi} className={gi > 0 ? "mt-5" : ""}>
+              {!collapsed && group.section && (
+                <div className="mb-1.5 px-3 text-[9px] font-semibold uppercase tracking-[0.16em] text-muted/70">
+                  {group.section}
+                </div>
+              )}
+              {group.items.map((n) => {
+                const active = isActive(n.href);
+                const Icon = n.icon;
+
+                if (collapsed) {
+                  return (
+                    <Link
+                      key={n.href}
+                      href={n.href}
+                      title={n.label + (n.badge ? ` · ${n.badge}` : "")}
+                      className={`mb-1 flex h-10 items-center justify-center rounded-xl transition relative ${
+                        active
+                          ? "bg-white text-navy shadow-soft"
+                          : "text-muted hover:bg-white/60 hover:text-foreground"
+                      }`}
+                    >
+                      {Icon ? <Icon className="h-[18px] w-[18px]" /> : <span className="text-[11px] font-semibold">{n.label[0]}</span>}
+                      {(n.badge ?? 0) > 0 && (
+                        <span className={`absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[9px] font-semibold text-white ${badgeBg(n.badgeTone)}`}>
+                          {n.badge! > 9 ? "9+" : n.badge}
+                        </span>
+                      )}
+                    </Link>
+                  );
+                }
+
+                return (
+                  <Link
+                    key={n.href}
+                    href={n.href}
+                    className={`group mb-0.5 flex items-center gap-3 rounded-xl px-3 py-2 text-[13px] transition ${
+                      active
+                        ? "bg-white font-medium text-navy shadow-soft"
+                        : "text-foreground/65 hover:bg-white/60 hover:text-foreground"
+                    }`}
+                  >
+                    {Icon && (
+                      <Icon
+                        className={`h-[17px] w-[17px] shrink-0 ${active ? "text-bronze-dark" : "text-foreground/45 group-hover:text-foreground/80"}`}
+                      />
+                    )}
+                    <span className="flex-1 truncate">{n.label}</span>
+                    {(n.badge ?? 0) > 0 && (
+                      <span className={`rounded-full px-1.5 py-px text-[10px] font-semibold ${badgePill(n.badgeTone)}`}>
+                        {n.badge! > 99 ? "99+" : n.badge}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
         {/* Footer — collapse toggle + glossary + user */}
@@ -147,7 +183,7 @@ export function Sidebar({
           <button
             onClick={toggleCollapse}
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className={`mb-2 flex w-full items-center rounded-md px-3 py-1.5 text-[11px] text-muted hover:bg-surface-2 hover:text-foreground ${
+            className={`mb-2 flex w-full items-center rounded-md px-3 py-1.5 text-[11px] text-muted hover:bg-white hover:text-foreground ${
               collapsed ? "justify-center px-0" : "gap-2"
             }`}
           >
@@ -161,13 +197,13 @@ export function Sidebar({
             <>
               <button
                 onClick={() => setGlossaryOpen(true)}
-                className="mb-2 flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-[11px] text-muted hover:bg-surface-2 hover:text-foreground"
+                className="mb-2 flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-[11px] text-muted hover:bg-white hover:text-foreground"
               >
                 <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-border text-[9px] text-muted">?</span>
                 Glossary
               </button>
 
-              <div className="flex items-center gap-2.5 px-2 pt-1">
+              <div className="flex items-center gap-2.5 rounded-xl border border-border bg-white px-2.5 py-2 shadow-soft">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-bronze-soft text-[11px] font-semibold text-bronze-dark">
                   {initials || "U"}
                 </div>
@@ -227,4 +263,19 @@ export function Sidebar({
       )}
     </>
   );
+}
+
+function badgePill(tone?: "default" | "positive" | "warning"): string {
+  switch (tone) {
+    case "positive": return "bg-[var(--positive-soft)] text-positive";
+    case "warning":  return "bg-[var(--severity-1-soft)] text-severity-1";
+    default:         return "bg-bronze-soft text-bronze-dark";
+  }
+}
+function badgeBg(tone?: "default" | "positive" | "warning"): string {
+  switch (tone) {
+    case "positive": return "bg-positive";
+    case "warning":  return "bg-severity-1";
+    default:         return "bg-bronze";
+  }
 }

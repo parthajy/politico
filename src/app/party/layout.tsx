@@ -3,29 +3,30 @@ import { redirect } from "next/navigation";
 import { auditLog } from "@/lib/audit";
 import { Sidebar, type NavItem } from "@/components/sidebar";
 import { FeedbackButton } from "@/components/feedback-button";
+import { Icons } from "@/components/sidebar-icons";
 import { requireSession, isMinisterScope, isCmoScope } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 // CMO nav — full state-wide view.
 const NAV_CMO: NavItem[] = [
-  { href: "/party", label: "Dashboard" },
-  { href: "/party/constituencies", label: "Constituencies" },
-  { href: "/party/cabinet", label: "Cabinet" },
-  { href: "/party/threats", label: "Threats" },
-  { href: "/party/watch", label: "My watchlist" },
+  { href: "/party",                label: "Dashboard",      icon: Icons.dashboard },
+  { href: "/party/constituencies", label: "Constituencies", icon: Icons.constituencies, section: "Survey" },
+  { href: "/party/cabinet",        label: "Cabinet",        icon: Icons.cabinet,        section: "Survey" },
+  { href: "/party/threats",        label: "Threats",        icon: Icons.threats,        section: "Survey" },
+  { href: "/party/watch",          label: "My watchlist",   icon: Icons.watchlist,      section: "Personal" },
+  { href: "/party/decisions",      label: "Decisions",      icon: Icons.decisions,      section: "Personal" },
+  { href: "/party/brief",          label: "Brief",          icon: Icons.brief,          section: "Reports" },
+  { href: "/party/alerts",         label: "Alerts",         icon: Icons.alerts,         section: "Reports" },
   // /party/brain reachable via the brain-icon shortcut at the top of the sidebar
-  { href: "/party/decisions", label: "Decisions" },
-  { href: "/party/brief", label: "Brief" },
-  { href: "/party/alerts", label: "Alerts" },
 ];
 
 // Minister nav — only what's about THEM.
 const NAV_MINISTER: NavItem[] = [
-  { href: "/party", label: "My desk" },
-  { href: "/party/threats", label: "My threats" },
-  { href: "/party/decisions", label: "Decisions" },
-  { href: "/party/alerts", label: "Alerts" },
+  { href: "/party",           label: "My desk",    icon: Icons.desk },
+  { href: "/party/threats",   label: "My threats", icon: Icons.threats },
+  { href: "/party/decisions", label: "Decisions",  icon: Icons.decisions },
+  { href: "/party/alerts",    label: "Alerts",     icon: Icons.alerts },
   // /party/brain reachable via the brain-icon shortcut at the top of the sidebar
 ];
 

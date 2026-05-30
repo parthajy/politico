@@ -2,22 +2,24 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Sidebar, type NavItem } from "@/components/sidebar";
 import { FeedbackButton } from "@/components/feedback-button";
+import { Icons } from "@/components/sidebar-icons";
 
 export const dynamic = "force-dynamic";
 
 const NAV: (NavItem & { adminOnly?: boolean; internToo?: boolean })[] = [
-  { href: "/firm", label: "Inbox" },
-  { href: "/firm/queue", label: "Triage queue", internToo: true },
-  { href: "/firm/voices", label: "Voices" },
-  { href: "/firm/stories", label: "Stories" },
-  { href: "/firm/sources", label: "Sources" },
-  { href: "/firm/briefs", label: "Briefs" },
-  { href: "/firm/agenda", label: "Agenda" },
-  { href: "/firm/narratives", label: "Narratives" },
-  { href: "/firm/watch", label: "My watchlist" },
-  { href: "/firm/decisions", label: "Decisions" },
-  { href: "/firm/threats", label: "Threats", adminOnly: true },
-  { href: "/firm/audit", label: "Audit", adminOnly: true },
+  // Main workspace
+  { href: "/firm",            label: "Inbox",         icon: Icons.inbox },
+  { href: "/firm/queue",      label: "Triage queue",  icon: Icons.queue, internToo: true },
+  { href: "/firm/narratives", label: "Narratives",    icon: Icons.narratives, section: "Intelligence" },
+  { href: "/firm/voices",     label: "Voices",        icon: Icons.voices,     section: "Intelligence" },
+  { href: "/firm/sources",    label: "Sources",       icon: Icons.sources,    section: "Intelligence" },
+  { href: "/firm/threats",    label: "Threats",       icon: Icons.threats,    section: "Intelligence", adminOnly: true },
+  { href: "/firm/stories",    label: "Stories",       icon: Icons.stories,    section: "Output" },
+  { href: "/firm/briefs",     label: "Briefs",        icon: Icons.briefs,     section: "Output" },
+  { href: "/firm/agenda",     label: "Agenda",        icon: Icons.agenda,     section: "Output" },
+  { href: "/firm/decisions",  label: "Decisions",     icon: Icons.decisions,  section: "Output" },
+  { href: "/firm/watch",      label: "My watchlist",  icon: Icons.watchlist,  section: "Personal" },
+  { href: "/firm/audit",      label: "Audit",         icon: Icons.audit,      section: "Personal", adminOnly: true },
   // /firm/brain reachable via the brain-icon shortcut at the top of the sidebar
 ];
 
