@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 
 type Step = "email" | "code";
@@ -29,9 +28,7 @@ export default function LoginPage() {
 
   // Auto-focus code input when we move to step 2
   useEffect(() => {
-    if (step === "code") {
-      setTimeout(() => codeInputRef.current?.focus(), 100);
-    }
+    if (step === "code") setTimeout(() => codeInputRef.current?.focus(), 100);
   }, [step]);
 
   async function sendCode(e?: React.FormEvent) {
@@ -41,17 +38,11 @@ export default function LoginPage() {
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: {
-        // No emailRedirectTo → Supabase sends an OTP code instead of a magic link.
-        // (If your Supabase email template still includes {{ .ConfirmationURL }},
-        // the link will be present but unused — see /super docs for template setup.)
-        shouldCreateUser: false,
-      },
+      options: { shouldCreateUser: false },
     });
     setLoading(false);
     if (error) {
-      // Neutral message — never confirm whether an email is on the team.
-      toast.message("If this email is on the team, a 6-digit code has been sent.");
+      toast.message("If this email is on the team, a code has been sent.");
     } else {
       toast.success("Code sent — check your email");
     }
@@ -61,22 +52,14 @@ export default function LoginPage() {
 
   async function verifyCode(e?: React.FormEvent) {
     e?.preventDefault();
-    if (code.length < 6) { toast.error("Enter the 6-digit code"); return; }
+    if (code.length < 6) { toast.error("Enter the code"); return; }
     setLoading(true);
     const supabase = createClient();
-    const { error } = await supabase.auth.verifyOtp({
-      email,
-      token: code.trim(),
-      type: "email",
-    });
+    const { error } = await supabase.auth.verifyOtp({ email, token: code.trim(), type: "email" });
     setLoading(false);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
+    if (error) { toast.error(error.message); return; }
     router.refresh();
-    // Push to /firm — middleware bounces by role.
-    router.push("/firm");
+    router.push("/firm"); // middleware bounces by role
   }
 
   async function resend() {
@@ -86,27 +69,70 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen bg-surface">
-      <div className="container mx-auto flex max-w-md flex-col items-center justify-center px-6 py-24">
-        <div className="mb-6 flex flex-col items-center text-center">
-          <Image src="/logo.png" alt="Samvidya" width={1114} height={242} className="h-9 w-auto" priority />
-          <div className="mt-3 text-xs uppercase tracking-[0.2em] text-bronze">Political intelligence · Arunachal Pradesh</div>
-          <h1 className="mt-2 font-serif text-3xl font-bold text-navy">Sign in</h1>
-        </div>
+    <main className="flex min-h-screen flex-col bg-surface p-2 sm:p-4 lg:flex-row lg:gap-4">
+      {/* Left — brand panel */}
+      <aside className="relative hidden overflow-hidden rounded-3xl bg-navy text-white lg:flex lg:w-1/2 xl:w-[55%]">
+        {/* Subtle dot constellation — nods to the brain-map without being literal */}
+        <div
+          className="absolute inset-0 opacity-30"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 1px 1px, rgba(199,148,76,0.45) 1px, transparent 0)",
+            backgroundSize: "36px 36px",
+          }}
+        />
+        {/* Warm-bronze glow in the lower-right */}
+        <div
+          className="absolute -bottom-32 -right-32 h-[420px] w-[420px] rounded-full opacity-40 blur-3xl"
+          style={{ background: "radial-gradient(circle, #C7944C 0%, transparent 70%)" }}
+        />
 
-        <Card className="w-full">
-          <CardHeader>
-            <CardTitle>{step === "email" ? "Enter your email" : "Enter the code from your email"}</CardTitle>
-            <CardDescription>
-              {step === "email"
-                ? "We'll email you a one-time code valid for 5 minutes."
-                : <>Sent to <span className="font-medium text-navy">{email}</span>. The code expires in 5 minutes.</>}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+        <div className="relative z-10 flex w-full flex-col justify-between p-10 xl:p-14">
+          <div className="flex items-center gap-3">
+            <Image src="/logo.png" alt="Samvidya" width={1114} height={242} className="h-7 w-auto brightness-0 invert" priority />
+          </div>
+
+          <div className="max-w-lg">
+            <h1 className="font-serif text-5xl font-bold leading-[1.05] tracking-tight text-white xl:text-[64px]">
+              See first.
+              <br />
+              Act sooner.
+            </h1>
+            <p className="mt-6 max-w-md text-base leading-relaxed text-white/70">
+              The signal desk that surfaces what matters, ranked by significance — and routes it to the people who can act on it.
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between text-[11px] text-white/40">
+            <span>© {new Date().getFullYear()} Samvidya</span>
+            <span className="font-mono">samvidya.com</span>
+          </div>
+        </div>
+      </aside>
+
+      {/* Right — form panel */}
+      <section className="flex flex-1 items-center justify-center rounded-3xl bg-white p-6 sm:p-10 lg:p-12">
+        <div className="w-full max-w-sm">
+          {/* Brand mark on mobile (when left panel is hidden) */}
+          <div className="mb-10 flex justify-center lg:hidden">
+            <Image src="/logo.png" alt="Samvidya" width={1114} height={242} className="h-7 w-auto" priority />
+          </div>
+
+          <h2 className="font-serif text-4xl font-bold text-navy">
+            {step === "email" ? "Sign in" : "Check your email"}
+          </h2>
+          <p className="mt-3 text-sm leading-relaxed text-muted">
+            {step === "email"
+              ? "Enter your email and we'll send a one-time code."
+              : (
+                <>We sent a code to <span className="font-medium text-navy">{email}</span>. It expires in 5 minutes.</>
+              )}
+          </p>
+
+          <div className="mt-8">
             {step === "email" ? (
-              <form onSubmit={sendCode} className="flex flex-col gap-3">
-                <div className="flex flex-col gap-1">
+              <form onSubmit={sendCode} className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
                   <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
@@ -116,22 +142,31 @@ export default function LoginPage() {
                     required
                     autoComplete="email"
                     autoFocus
+                    placeholder="you@samvidya.com"
+                    className="h-12 rounded-full border-border bg-white px-5 text-[15px]"
                   />
                 </div>
-                <Button type="submit" disabled={loading} className="mt-2">
-                  {loading ? "Sending…" : "Send code"}
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  variant="bronze"
+                  className="mt-2 h-12 rounded-full bg-gradient-to-r from-bronze to-[#E0613E] text-[15px] font-semibold shadow-md hover:opacity-95"
+                >
+                  {loading ? "Sending…" : (
+                    <>
+                      Send code
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M5 12h14" />
+                        <path d="m12 5 7 7-7 7" />
+                      </svg>
+                    </>
+                  )}
                 </Button>
               </form>
             ) : (
-              <form onSubmit={verifyCode} className="flex flex-col gap-3">
-                <div className="flex flex-col gap-1">
-                  <Label htmlFor="code">One-time code</Label>
-                  {/*
-                    Supabase's email-OTP length is project-configurable (6 or 8
-                    digits). We accept anything from 6 up to 10 numeric chars
-                    and let verifyOtp tell us if it's wrong — avoids having to
-                    keep this length in sync with the Supabase setting.
-                  */}
+              <form onSubmit={verifyCode} className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="code">Code</Label>
                   <Input
                     ref={codeInputRef}
                     id="code"
@@ -143,40 +178,47 @@ export default function LoginPage() {
                     value={code}
                     onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 10))}
                     placeholder="••••••••"
-                    className="text-center text-2xl tracking-[0.35em] font-mono"
+                    className="h-14 rounded-full border-border bg-white text-center text-2xl tracking-[0.35em] font-mono"
                     required
                   />
                 </div>
-                <Button type="submit" disabled={loading || code.length < 6} className="mt-2">
+                <Button
+                  type="submit"
+                  disabled={loading || code.length < 6}
+                  variant="bronze"
+                  className="mt-2 h-12 rounded-full bg-gradient-to-r from-bronze to-[#E0613E] text-[15px] font-semibold shadow-md hover:opacity-95"
+                >
                   {loading ? "Verifying…" : "Verify & sign in"}
                 </Button>
-                <div className="flex items-center justify-between text-xs">
+
+                <div className="flex items-center justify-between pt-2 text-xs">
                   <button
                     type="button"
                     onClick={() => { setStep("email"); setCode(""); }}
                     className="text-muted hover:text-foreground"
                   >
-                    ← Use a different email
+                    ← Different email
                   </button>
                   <button
                     type="button"
                     onClick={resend}
                     disabled={secondsLeft > 0 || loading}
-                    className="text-bronze hover:text-bronze-dark disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="font-medium text-bronze hover:text-bronze-dark disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     {secondsLeft > 0 ? `Resend in ${secondsLeft}s` : "Resend code"}
                   </button>
                 </div>
               </form>
             )}
-          </CardContent>
-        </Card>
+          </div>
 
-        <p className="mt-6 text-center text-[11px] leading-relaxed text-muted">
-          Field volunteers use the dedicated app at{" "}
-          <a href="/v/login" className="text-bronze underline">/v/login</a> with the token issued by their desk.
-        </p>
-      </div>
+          {/* Footer row — volunteer link + © */}
+          <div className="mt-12 flex items-center justify-between border-t border-border pt-5 text-[11px] text-muted">
+            <a href="/v/login" className="text-bronze hover:text-bronze-dark">Field app →</a>
+            <span>© {new Date().getFullYear()} Samvidya</span>
+          </div>
+        </div>
+      </section>
     </main>
   );
 }

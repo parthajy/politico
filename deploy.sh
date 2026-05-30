@@ -50,9 +50,10 @@ cyan "==> restart samvidya systemd unit"
 ssh "$DROPLET" 'systemctl restart samvidya && sleep 3 && systemctl --no-pager status samvidya | head -10'
 
 cyan "==> smoke test"
+# / redirects to /login (signed-out) or /firm (signed-in), so a 3xx is healthy.
 SMOKE=$(curl -sI http://168.144.83.204/ | head -1 || true)
-if echo "$SMOKE" | grep -q "200 OK"; then
-  green "✓ App responding 200 OK at http://168.144.83.204/"
+if echo "$SMOKE" | grep -qE "20[0-9]|30[0-9]"; then
+  green "✓ App responding at http://168.144.83.204/ ($SMOKE)"
 else
   red "✗ App not responding cleanly: $SMOKE"
   exit 1
