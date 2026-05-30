@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { RefreshButton } from "./refresh-button";
 import { PremiumCard } from "./premium-card";
+import { FeedsSection, type Feed } from "./feeds-section";
 import { formatDistanceToNowStrict } from "date-fns";
 
 export const dynamic = "force-dynamic";
@@ -49,7 +50,16 @@ async function loadHealth() {
 }
 
 export default async function SourcesPage() {
-  const health = await loadHealth();
+  const sb = createClient();
+  const [health, feedsRes] = await Promise.all([
+    loadHealth(),
+    sb.from("feed_registry")
+      .select("*")
+      .order("active", { ascending: false })
+      .order("source", { ascending: true })
+      .order("display_name", { ascending: true }),
+  ]);
+  const feeds = (feedsRes.data ?? []) as Feed[];
 
   return (
     <div className="container mx-auto max-w-7xl px-6 py-10">
@@ -57,7 +67,7 @@ export default async function SourcesPage() {
         <div>
           <div className="text-xs uppercase tracking-[0.18em] text-bronze">Sources</div>
           <h1 className="mt-2 font-serif text-3xl font-bold text-navy">Signal pipeline health</h1>
-          <p className="mt-2 text-sm text-muted">Five live sources powering the demo. Five enterprise sources unlock post-contract.</p>
+          <p className="mt-2 text-sm text-muted">Source-type rollup at the top. Drill into individual feeds below to add, pause, or remove them.</p>
         </div>
         <RefreshButton />
       </div>
@@ -110,6 +120,10 @@ export default async function SourcesPage() {
           );
         })}
       </div>
+
+      {/* Per-feed registry — the actual list of every RSS/Google News feed
+          we pull from, with add/pause/remove controls. */}
+      <FeedsSection feeds={feeds} />
 
       <h2 className="mt-12 font-serif text-lg font-bold text-navy">Available — not connected</h2>
       <p className="mt-1 text-sm text-muted">Premium sources the firm will purchase post-contract. Click any card to see what it unlocks.</p>

@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { InfoTooltip } from "@/components/info-tooltip";
 import { format, formatDistanceToNowStrict } from "date-fns";
 import { VoicesFilter } from "./voices-filter";
+import { AddVoiceButton } from "./voice-form";
 
 export const dynamic = "force-dynamic";
 
@@ -57,9 +58,14 @@ export default async function VoicesPage({ searchParams }: { searchParams: Searc
 
   return (
     <div className="container mx-auto max-w-7xl px-6 py-10">
-      <div className="text-xs uppercase tracking-[0.18em] text-bronze">Voices CRM</div>
-      <h1 className="mt-2 font-serif text-3xl font-bold text-navy">Local voices</h1>
-      <p className="mt-1 text-sm text-muted">Leverage map, not a contact list. Doctrine 3 (Local Voice First) + Doctrine 4 (No Paid Narrative).</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="text-xs uppercase tracking-[0.18em] text-bronze">Voices CRM</div>
+          <h1 className="mt-2 font-serif text-3xl font-bold text-navy">Local voices</h1>
+          <p className="mt-1 text-sm text-muted">Leverage map, not a contact list. Doctrine 3 (Local Voice First) + Doctrine 4 (No Paid Narrative).</p>
+        </div>
+        <AddVoiceButton districts={districts ?? []} />
+      </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-3 lg:grid-cols-6">
         <Stat label="Active" value={active.toString()} sub={`of ${total}`} />

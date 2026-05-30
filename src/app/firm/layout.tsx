@@ -17,8 +17,8 @@ const NAV: (NavItem & { adminOnly?: boolean; internToo?: boolean })[] = [
   { href: "/firm/watch", label: "My watchlist" },
   { href: "/firm/decisions", label: "Decisions" },
   { href: "/firm/threats", label: "Threats", adminOnly: true },
-  { href: "/firm/brain", label: "Brain map" },
   { href: "/firm/audit", label: "Audit", adminOnly: true },
+  // /firm/brain reachable via the brain-icon shortcut at the top of the sidebar
 ];
 
 export default async function FirmLayout({ children }: { children: React.ReactNode }) {

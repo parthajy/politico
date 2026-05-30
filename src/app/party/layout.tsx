@@ -13,8 +13,8 @@ const NAV_CMO: NavItem[] = [
   { href: "/party/constituencies", label: "Constituencies" },
   { href: "/party/cabinet", label: "Cabinet" },
   { href: "/party/threats", label: "Threats" },
-  { href: "/party/brain", label: "Brain map" },
   { href: "/party/watch", label: "My watchlist" },
+  // /party/brain reachable via the brain-icon shortcut at the top of the sidebar
   { href: "/party/decisions", label: "Decisions" },
   { href: "/party/brief", label: "Brief" },
   { href: "/party/alerts", label: "Alerts" },
@@ -24,9 +24,9 @@ const NAV_CMO: NavItem[] = [
 const NAV_MINISTER: NavItem[] = [
   { href: "/party", label: "My desk" },
   { href: "/party/threats", label: "My threats" },
-  { href: "/party/brain", label: "My brain map" },
   { href: "/party/decisions", label: "Decisions" },
   { href: "/party/alerts", label: "Alerts" },
+  // /party/brain reachable via the brain-icon shortcut at the top of the sidebar
 ];
 
 export default async function PartyLayout({ children }: { children: React.ReactNode }) {

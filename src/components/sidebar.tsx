@@ -8,7 +8,7 @@ import { GLOSSARY } from "@/lib/glossary";
 import { SignOutButton } from "@/components/sign-out-button";
 import { CommandPalette } from "@/components/command-palette";
 
-export type NavItem = { href: string; label: string };
+export type NavItem = { href: string; label: string; badge?: number };
 
 const SCOPE_LABEL: Record<"firm" | "party" | "super", string> = {
   firm: "Analyst workbench",
@@ -131,7 +131,12 @@ export function Sidebar({
                     active ? "bg-bronze" : "bg-transparent group-hover:bg-muted/40"
                   }`}
                 />
-                {n.label}
+                <span className="flex-1">{n.label}</span>
+                {(n.badge ?? 0) > 0 && (
+                  <span className="rounded-full bg-severity-1 px-1.5 py-px text-[10px] font-semibold text-white">
+                    {n.badge! > 99 ? "99+" : n.badge}
+                  </span>
+                )}
               </Link>
             );
           })}

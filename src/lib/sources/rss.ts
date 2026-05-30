@@ -3,7 +3,9 @@ import { fetchWithTimeout } from "./util";
 
 // Indian outlets + Google News searches.
 // We treat Google News results as source='google_news'; all others as source='rss'.
-type Feed = { url: string; source: EventSource; tag?: string };
+// tag is required — every feed has one, used as the unique id for status
+// tracking and the AP-broad filter set.
+type Feed = { url: string; source: EventSource; tag: string };
 
 const INDIAN_OUTLET_FEEDS: Feed[] = [
   // National outlets — broad feeds, AP-relevance filter applied below.
@@ -121,10 +123,65 @@ function isApRelevant(text: string) {
   return AP_KEYWORDS.some((k) => t.includes(k));
 }
 
+async function loadActiveFeeds(): Promise<Feed[]> {
+  // Try DB first — once 0015 has been applied, this becomes the source of
+  // truth. If the table doesn't exist yet (migration not run), fall back to
+  // the hardcoded ALL_FEEDS so the pipeline keeps working through the cutover.
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const sb = createAdminClient();
+    const { data, error } = await sb
+      .from("feed_registry")
+      .select("source, tag, url, is_broad, active")
+      .eq("active", true);
+    if (error || !data) return ALL_FEEDS;
+    return data.map((d) => ({
+      source: d.source as EventSource,
+      tag: d.tag,
+      url: d.url,
+    }));
+  } catch {
+    return ALL_FEEDS;
+  }
+}
+
+async function recordFeedRun(tag: string, opts: { count: number; lastItemAt: string | null; error: string | null }) {
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const sb = createAdminClient();
+    await sb.from("feed_registry").update({
+      last_fetched_at: new Date().toISOString(),
+      last_item_at: opts.lastItemAt,
+      last_item_count: opts.count,
+      fetch_error: opts.error,
+    }).eq("tag", tag);
+  } catch { /* table might not exist yet — silently skip */ }
+}
+
+// Track which feeds are broad (need AP-keyword filter). Loaded from DB at
+// runtime; falls back to the hardcoded list for first-run before migration.
+const BROAD_TAGS = new Set(["thehindu", "hindustan_times", "ndtv", "pib_national", "x_search_arunachal"]);
+
 export async function fetchRss(): Promise<FetchResult> {
   const events: RawEvent[] = [];
+  const feeds = await loadActiveFeeds();
+
+  // Fetch the broad-flag map separately (loadActiveFeeds returns minimal cols
+  // for back-compat with the hardcoded fallback). Keep DB broad flag as the
+  // primary source of truth when available.
+  let broadByTag: Set<string> = BROAD_TAGS;
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin");
+    const sb = createAdminClient();
+    const { data: broadRows } = await sb.from("feed_registry").select("tag, is_broad").eq("is_broad", true);
+    if (broadRows && broadRows.length > 0) broadByTag = new Set(broadRows.map((r) => r.tag));
+  } catch { /* fallback to BROAD_TAGS */ }
+
   await Promise.all(
-    ALL_FEEDS.map(async (feed) => {
+    feeds.map(async (feed) => {
+      let count = 0;
+      let lastItemAt: string | null = null;
+      let errorMsg: string | null = null;
       try {
         const r = await fetchWithTimeout(
           feed.url,
@@ -132,7 +189,9 @@ export async function fetchRss(): Promise<FetchResult> {
           7000,
         );
         if (!r.ok) {
+          errorMsg = `HTTP ${r.status}`;
           console.warn(`rss ${feed.tag} → ${r.status}`);
+          await recordFeedRun(feed.tag, { count, lastItemAt, error: errorMsg });
           return;
         }
         const xml = await r.text();
@@ -140,26 +199,26 @@ export async function fetchRss(): Promise<FetchResult> {
         const items = parseRss(xml).slice(0, 15);
         for (const it of items) {
           // Keep only AP-relevant items for the broad national feeds
-          const isBroad =
-            feed.tag === "thehindu" ||
-            feed.tag === "hindustan_times" ||
-            feed.tag === "ndtv" ||
-            feed.tag === "pib_national" ||
-            feed.tag === "x_search_arunachal";
+          const isBroad = broadByTag.has(feed.tag);
           if (isBroad && !isApRelevant(it.title) && !isApRelevant(it.description)) continue;
+          const publishedIso = it.pubDate ? safeDate(it.pubDate) : null;
+          if (publishedIso && (!lastItemAt || publishedIso > lastItemAt)) lastItemAt = publishedIso;
+          count += 1;
           events.push({
             source: feed.source,
             source_id: hash(it.guid || it.link || it.title),
             url: it.link || null,
             title: it.title || "(no title)",
             body: it.description || null,
-            published_at: it.pubDate ? safeDate(it.pubDate) : null,
+            published_at: publishedIso,
             raw_payload: { feed: feed.tag, feed_url: feed.url },
           });
         }
       } catch (e) {
-        console.warn(`rss ${feed.tag} fetch error: ${(e as Error).message}`);
+        errorMsg = (e as Error).message;
+        console.warn(`rss ${feed.tag} fetch error: ${errorMsg}`);
       }
+      await recordFeedRun(feed.tag, { count, lastItemAt, error: errorMsg });
     })
   );
   return { source: "rss", fetched: events.length, events };
