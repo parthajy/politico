@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { GLOSSARY } from "@/lib/glossary";
 import { SignOutButton } from "@/components/sign-out-button";
+import { CommandPalette } from "@/components/command-palette";
 
 export type NavItem = { href: string; label: string };
 
@@ -67,8 +68,13 @@ export function Sidebar({
           </div>
         </div>
 
+        {/* Search trigger — opens the ⌘K palette */}
+        <div className="px-3 pb-2">
+          <CommandPalette />
+        </div>
+
         {/* Nav */}
-        <nav className="mt-2 flex-1 overflow-y-auto px-2.5">
+        <nav className="mt-1 flex-1 overflow-y-auto px-2.5">
           {nav.map((n) => {
             const active = isActive(n.href);
             return (
